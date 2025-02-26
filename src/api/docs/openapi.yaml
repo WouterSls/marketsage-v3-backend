@@ -1,0 +1,74 @@
+openapi: 3.0.0
+info:
+  title: Market Sage API
+  version: 1.0.0
+  description: API for token discovery, validation, and monitoring
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+tags:
+  - name: Discovery
+    description: Token discovery operations
+  - name: Security
+    description: Token security validation operations
+  - name: Monitor
+    description: Token monitoring operations
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the API
+      tags:
+        - System
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  version:
+                    type: string
+                    example: "1.0.0"
+
+  # Example Discovery endpoint
+  /discovery/status:
+    get:
+      summary: Get discovery service status
+      description: Returns the current status of the token discovery service
+      tags:
+        - Discovery
+      responses:
+        "200":
+          description: Discovery service status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  running:
+                    type: boolean
+                    example: true
+                  startBlock:
+                    type: integer
+                    example: 1234567
+                  currentBlock:
+                    type: integer
+                    example: 1234600
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string

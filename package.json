@@ -7,7 +7,7 @@
   "type": "commonjs",
   "main": "server.ts",
   "scripts": {
-    "dev": "npx nodemon js-build/src/server.js",
+    "dev": "cp -r src/api/docs js-build/src/api/docs && npx nodemon js-build/src/server.js",
     "setup": "rm -rf js-build && rm -rf data/db.sqlite && npx tsc && npx drizzle-kit generate",
     "start": "node js-build/interaction-scripts/startBot.js",
     "stop": "node js-build/interaction-scripts/stopBot.js"
@@ -20,14 +20,18 @@
     "ethers": "^6.13.5",
     "express": "^4.21.2",
     "prettier": "^3.5.2",
+    "swagger-ui-express": "^5.0.1",
     "typescript": "^5.7.3",
-    "ws": "^8.18.1"
+    "ws": "^8.18.1",
+    "yamljs": "^0.3.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
+    "@types/swagger-ui-express": "^4.1.8",
     "@types/ws": "^8.5.14",
+    "@types/yamljs": "^0.2.34",
     "drizzle-kit": "^0.30.5"
   }
 }
