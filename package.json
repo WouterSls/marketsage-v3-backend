@@ -1,0 +1,33 @@
+{
+  "name": "marketsage-v3-backend",
+  "version": "1.0.0",
+  "description": "Backend server of marketsage v3",
+  "license": "ISC",
+  "author": "wsels",
+  "type": "commonjs",
+  "main": "server.ts",
+  "scripts": {
+    "dev": "npx nodemon js-build/src/server.js",
+    "setup": "rm -rf js-build && rm -rf data/db.sqlite && npx tsc && npx drizzle-kit generate",
+    "start": "node js-build/interaction-scripts/startBot.js",
+    "stop": "node js-build/interaction-scripts/stopBot.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.40.0",
+    "ethers": "^6.13.5",
+    "express": "^4.21.2",
+    "prettier": "^3.5.2",
+    "typescript": "^5.7.3",
+    "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/ws": "^8.5.14",
+    "drizzle-kit": "^0.30.5"
+  }
+}
