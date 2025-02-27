@@ -1,14 +1,27 @@
 import dotenv from "dotenv";
 import path from "path";
 import http from "http";
+
 import app from "./app";
+
+import { ethers } from "ethers";
+import { Services } from "./services";
 
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const PORT = process.env.PORT || 8080;
+const PROVIDER_URL = process.env.PROVIDER_URL || "http://localhost:8545";
 
 async function startServer() {
   try {
+    // Initialize provider
+    const provider = new ethers.JsonRpcProvider(PROVIDER_URL);
+
+    // Initialize services
+    const services = Services.getInstance(provider);
+    await services.initialize();
+
+    // Create HTTP server
     const server = http.createServer(app);
 
     server.listen(PORT, () => {
@@ -16,8 +29,12 @@ async function startServer() {
       console.log(`API documentation available at http://localhost:${PORT}/api-docs`);
     });
 
-    process.on("SIGINT", () => {
+    process.on("SIGINT", async () => {
       console.log("Gracefully shutting down server...");
+
+      // Shutdown services before closing server
+      await services.shutdown();
+
       server.close(() => {
         console.log("Server closed");
         process.exit(0);

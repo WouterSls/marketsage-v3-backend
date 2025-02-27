@@ -15,6 +15,8 @@ tags:
     description: Token security validation operations
   - name: Monitor
     description: Token monitoring operations
+  - name: System
+    description: System operations and health checks
 
 paths:
   /health:
@@ -37,6 +39,71 @@ paths:
                   version:
                     type: string
                     example: "1.0.0"
+
+  /services/status:
+    get:
+      summary: Services status check
+      description: Returns the status of all background services including the token security validator and monitor
+      tags:
+        - System
+      responses:
+        "200":
+          description: Services status information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      isInitialized:
+                        type: boolean
+                        example: true
+                      tokenSecurityValidator:
+                        type: object
+                        properties:
+                          isRunning:
+                            type: boolean
+                            example: true
+                          queueSize:
+                            type: integer
+                            example: 0
+                          isProcessingToken:
+                            type: boolean
+                            example: false
+                          health:
+                            type: string
+                            enum: [healthy, degraded, stopped]
+                            example: "healthy"
+                          consecutiveErrors:
+                            type: integer
+                            example: 0
+                      tokenMonitorManager:
+                        type: object
+                        properties:
+                          isRunning:
+                            type: boolean
+                            example: true
+                          queueSize:
+                            type: integer
+                            example: 0
+        "500":
+          description: Error retrieving services status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Failed to get services status"
 
   # Example Discovery endpoint
   /discovery/status:
