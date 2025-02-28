@@ -43,8 +43,6 @@ export class TokenDiscoveryManager {
       return;
     }
 
-    console.log("Initializing Token Discovery Manager");
-
     try {
       // Initialize components
       this.blockEventPoller = new BlockEventPoller(config.provider);
@@ -135,23 +133,16 @@ export class TokenDiscoveryManager {
         return;
       }
 
-      console.log(`Scanning blocks from ${this.lastScannedBlock + 1} to ${currentBlock}`);
-
-      const batchSize = DISCOVERY_CONFIG.blockBatchSize || 10;
-
       for (let blockNumber = this.lastScannedBlock + 1; blockNumber <= currentBlock; blockNumber++) {
+        console.log(`Processing block ${blockNumber}`);
         await this.processBlock(blockNumber);
 
         this.statistics.blocksScanned++;
         this.statistics.lastScannedBlock = blockNumber;
         this.lastScannedBlock = blockNumber;
 
-        if (this.statistics.blocksScanned % batchSize === 0) {
-          console.log(`Processed ${this.statistics.blocksScanned} blocks`);
-        }
       }
 
-      console.log(`Block scanning completed. Processed ${currentBlock - this.lastScannedBlock} blocks`);
     } catch (error) {
       console.error("Error during block scanning", error);
       throw error;
@@ -170,7 +161,7 @@ export class TokenDiscoveryManager {
         return;
       }
 
-      console.log(`Found ${contractAddresses.length} contract creations in block ${blockNumber}`);
+      console.log(`Found ${contractAddresses.length} contract creation(s) in block ${blockNumber}`);
       this.statistics.contractsDiscovered += contractAddresses.length;
 
       for (const address of contractAddresses) {
@@ -196,7 +187,6 @@ export class TokenDiscoveryManager {
 
           await this.tokenQueue.enqueueToken(token);
           this.statistics.tokensValidated++;
-          console.log(`Validated and queued token at address ${address}`);
         }
       }
     } catch (error) {

@@ -97,7 +97,7 @@ export class TokenSecurityValidator {
   private setupQueueListeners(): void {
     // When a new item is enqueued, start processing if not already
     this.queue.on("enqueued", () => {
-      console.log("New token enqueued for validation");
+      console.log("Queue listener: new token enqueued for validation");
       if (this.isRunning && !this.isProcessingToken) {
         this.processNextToken();
       }
@@ -125,10 +125,8 @@ export class TokenSecurityValidator {
       return;
     }
 
-    console.log("Starting Token Security Validator");
     this.isRunning = true;
 
-    // If items are in the queue, start processing
     if (this.queue.size() > 0) {
       this.processNextToken();
     }

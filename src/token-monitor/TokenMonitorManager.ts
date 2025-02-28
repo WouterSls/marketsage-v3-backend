@@ -23,6 +23,9 @@ export class TokenMonitorManager {
 
     // Setup queue listeners
     this.setupQueueListeners();
+    this.start();
+
+    console.log("Token Monitor initialized and started automatically");
   }
 
   /**
@@ -45,18 +48,14 @@ export class TokenMonitorManager {
       return;
     }
 
-    console.log(`Starting Token Monitor with interval ${intervalMs}ms`);
     this.isRunning = true;
 
-    // Immediately run the first check
     this.checkTokensForMonitoring();
 
-    // Schedule regular checks
     this.monitorInterval = setInterval(() => {
       this.checkTokensForMonitoring().catch((err) => console.error("Error checking tokens for monitoring", err));
     }, intervalMs);
 
-    // If items are already in the queue, start processing
     if (this.queue.size() > 0) {
       this.processNextToken();
     }
@@ -114,7 +113,6 @@ export class TokenMonitorManager {
    * This would be called on a schedule (like a cron job)
    */
   private async checkTokensForMonitoring(): Promise<void> {
-    console.log("Checking database for tokens that need monitoring");
 
     try {
       // TODO: Query the database for tokens that need monitoring

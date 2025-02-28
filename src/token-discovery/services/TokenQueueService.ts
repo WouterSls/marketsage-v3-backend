@@ -1,3 +1,4 @@
+import { QueueError } from "../../lib/errors/QueueError";
 import { QueueManager } from "../../lib/queues/QueueManager";
 import { QueueNames, TokenValidationItem } from "../../lib/queues/QueueTypes";
 
@@ -18,10 +19,10 @@ export class TokenQueueService {
    * @param blockNumber Optional block number where the token was discovered
    */
   public async enqueueToken(token: { address: string; creatorAddress: string }, blockNumber?: number): Promise<void> {
-    const queue = this.queueManager.getQueue<TokenValidationItem>(QueueNames.TOKEN_VALIDATION);
+    const tokenValidationQueue = this.queueManager.getQueue<TokenValidationItem>(QueueNames.TOKEN_VALIDATION);
 
-    if (!queue) {
-      throw new Error("Token validation queue not initialized");
+    if (!tokenValidationQueue) {
+      throw new QueueError("Token validation queue not initialized");
     }
 
     const tokenItem: TokenValidationItem = {
@@ -31,15 +32,14 @@ export class TokenQueueService {
       discoveredAt: Date.now(),
     };
 
-    queue.enqueue(tokenItem);
-    console.log(`Enqueued token at address ${token.address} for validation`);
+    tokenValidationQueue.enqueue(tokenItem);
   }
 
   /**
    * Get the number of tokens waiting for validation
    */
   public getQueueSize(): number {
-    const queue = this.queueManager.getQueue<TokenValidationItem>(QueueNames.TOKEN_VALIDATION);
-    return queue ? queue.size() : 0;
+    const tokenValidationQueue = this.queueManager.getQueue<TokenValidationItem>(QueueNames.TOKEN_VALIDATION);
+    return tokenValidationQueue ? tokenValidationQueue.size() : 0;
   }
 }

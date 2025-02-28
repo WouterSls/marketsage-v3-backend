@@ -7,18 +7,19 @@ import app from "./app";
 import { ethers } from "ethers";
 import { Services } from "./services";
 
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const PORT = process.env.PORT || 8080;
-const PROVIDER_URL = process.env.PROVIDER_URL || "http://localhost:8545";
+const BASESCAN_API_KEY = process.env.BASESCAN_API_KEY || "";
+const BASE_RPC_URL = process.env.BASE_RPC_URL || "";
 
 async function startServer() {
   try {
     // Initialize provider
-    const provider = new ethers.JsonRpcProvider(PROVIDER_URL);
+    const provider = new ethers.JsonRpcProvider(BASE_RPC_URL);
 
     // Initialize services
-    const services = Services.getInstance(provider);
+    const services = Services.getInstance(provider, BASESCAN_API_KEY);
     await services.initialize();
 
     // Create HTTP server

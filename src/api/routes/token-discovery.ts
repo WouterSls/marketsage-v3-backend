@@ -1,32 +1,32 @@
 import { Router } from "express";
+import { TokenDiscoveryManager } from "../../token-discovery/TokenDiscoveryManager";
 
 const router = Router();
 
-// Get discovery service status
-router.get("/discovery/status", (req, res) => {
-  // This would typically come from your actual discovery service
+router.get("/token-discovery/status", (req, res) => {
+  const status = TokenDiscoveryManager.getInstance().getStatus();
+
   res.json({
-    running: false,
-    startBlock: 0,
-    currentBlock: 0,
+    running: status.isRunning,
+    statistics: status.statistics,
   });
 });
 
 // Start discovery service
-router.post("/discovery/start", (req, res) => {
-  // This would typically call your discovery service's start method
+router.post("/token-discovery/start", (req, res) => {
+  TokenDiscoveryManager.getInstance().start();
   res.json({
     success: true,
-    message: "Discovery service started",
+    message: "Token discovery service started",
   });
 });
 
 // Stop discovery service
-router.post("/discovery/stop", (req, res) => {
-  // This would typically call your discovery service's stop method
+router.post("/token-discovery/stop", (req, res) => {
+  TokenDiscoveryManager.getInstance().stop();
   res.json({
     success: true,
-    message: "Discovery service stopped",
+    message: "Token discovery service stopped",
   });
 });
 

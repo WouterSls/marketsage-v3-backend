@@ -1,6 +1,7 @@
 import { Provider } from "ethers";
 import { TokenSecurityValidator } from "./token-security-validator";
 import { TokenMonitorManager } from "./token-monitor";
+import { TokenDiscoveryManager } from "./token-discovery/TokenDiscoveryManager";
 
 /**
  * Class to initialize and manage all background services
@@ -8,21 +9,24 @@ import { TokenMonitorManager } from "./token-monitor";
 export class Services {
   private static instance: Services;
   private provider: Provider;
+  private baseScanApiKey: string;
   private isInitialized = false;
 
+  private tokenDiscoveryManager: TokenDiscoveryManager | null = null;
   private tokenSecurityValidator: TokenSecurityValidator | null = null;
   private tokenMonitorManager: TokenMonitorManager | null = null;
 
-  private constructor(provider: Provider) {
+  private constructor(provider: Provider, baseScanApiKey: string) {
     this.provider = provider;
+    this.baseScanApiKey = baseScanApiKey;
   }
 
   /**
    * Get the singleton instance of Services
    */
-  public static getInstance(provider: Provider): Services {
+  public static getInstance(provider: Provider, baseScanApiKey: string): Services {
     if (!Services.instance) {
-      Services.instance = new Services(provider);
+      Services.instance = new Services(provider, baseScanApiKey);
     }
     return Services.instance;
   }
@@ -39,12 +43,15 @@ export class Services {
     console.log("Initializing background services...");
 
     try {
-      // Initialize TokenSecurityValidator (starts automatically)
+      this.tokenDiscoveryManager = TokenDiscoveryManager.getInstance();
+      await this.tokenDiscoveryManager.initialize({
+        provider: this.provider,
+        baseScanApiKey: this.baseScanApiKey,
+      });
+
       this.tokenSecurityValidator = TokenSecurityValidator.getInstance(this.provider);
 
-      // Initialize and start TokenMonitorManager
       this.tokenMonitorManager = TokenMonitorManager.getInstance(this.provider);
-      this.tokenMonitorManager.start();
 
       this.isInitialized = true;
       console.log("All background services initialized successfully");

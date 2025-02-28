@@ -2,23 +2,59 @@ openapi: 3.0.0
 info:
   title: Market Sage API
   version: 1.0.0
-  description: API for token discovery, validation, and monitoring
+  description: MarketSage API for discovery, secrity validation, and monitoring
 
 servers:
   - url: /api/v1
     description: API v1
 
 tags:
-  - name: Discovery
+  - name: Token Discovery
     description: Token discovery operations
-  - name: Security
+  - name: Token Security Validation
     description: Token security validation operations
-  - name: Monitor
+  - name: Token Monitoring
     description: Token monitoring operations
   - name: System
     description: System operations and health checks
 
 paths:
+  /token-discovery/status:
+    get:
+      summary: Token discovery service status
+      description: Returns the current status of the token discovery service
+      tags:
+        - Token Discovery
+      responses:
+        "200":
+          description: Token discovery service status
+          content:
+            application/json:
+              schema:
+  /token-discovery/start:
+    post:
+      summary: Start token discovery service
+      description: Starts the token discovery service
+      tags:
+        - Token Discovery
+      responses:
+        "200":
+          description: Token discovery service started
+          content:
+            application/json:
+              schema:
+  /token-discovery/stop:
+    post:
+      summary: Stop token discovery service
+      description: Stops the token discovery service
+      tags:
+        - Token Discovery 
+      responses:
+        "200":
+          description: Token discovery service stopped
+          content:
+            application/json:
+              schema:
   /health:
     get:
       summary: Health check endpoint
@@ -104,31 +140,6 @@ paths:
                   error:
                     type: string
                     example: "Failed to get services status"
-
-  # Example Discovery endpoint
-  /discovery/status:
-    get:
-      summary: Get discovery service status
-      description: Returns the current status of the token discovery service
-      tags:
-        - Discovery
-      responses:
-        "200":
-          description: Discovery service status
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  running:
-                    type: boolean
-                    example: true
-                  startBlock:
-                    type: integer
-                    example: 1234567
-                  currentBlock:
-                    type: integer
-                    example: 1234600
 
 components:
   schemas:

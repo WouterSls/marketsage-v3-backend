@@ -16,7 +16,6 @@ export class Queue<T> extends EventEmitter {
     super();
     this.name = name;
     this.maxRetries = maxRetries;
-    console.log(`Queue initialized: ${name}`);
   }
 
   /**
@@ -33,7 +32,6 @@ export class Queue<T> extends EventEmitter {
     console.log(`[Queue:${this.name}] Item enqueued, queue size: ${this.items.length}`);
     this.emit("enqueued", queueItem);
 
-    // Trigger processing if not already processing
     if (!this.processing) {
       this.emit("process");
     }
