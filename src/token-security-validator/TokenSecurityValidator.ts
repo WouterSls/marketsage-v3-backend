@@ -1,7 +1,17 @@
 import { Provider } from "ethers";
 import { QueueManager } from "../lib/queues/QueueManager";
 import { QueueNames, TokenValidationItem } from "../lib/queues/QueueTypes";
-import { Queue, QueueItem } from "../lib/queues/Queue";
+import { Queue } from "../lib/queues/Queue";
+
+/**
+ * Token object that is kept active for a period of time
+ */
+export interface ActiveToken {
+  address: string;
+  creatorAddress: string;
+  addedAt: number;
+  expiresAt: number;
+}
 
 /**
  * Service that validates the security of tokens
@@ -11,32 +21,31 @@ import { Queue, QueueItem } from "../lib/queues/Queue";
 export class TokenSecurityValidator {
   private static instance: TokenSecurityValidator;
   private provider: Provider;
-  private queue: Queue<TokenValidationItem>;
-  private isRunning = false;
-  private isProcessingToken = false;
+  private monitoringQueue: Queue<any>;
   private consecutiveErrors = 0;
   private maxConsecutiveErrors = 5;
-  private errorResetTimeoutMs = 10000;
+  private activeTokens: Map<string, ActiveToken> = new Map();
+
+  // Token will be active for 10 minutes (in milliseconds)
+  private readonly TOKEN_ACTIVE_DURATION_MS = 10 * 60 * 1000;
 
   private constructor(provider: Provider) {
     this.provider = provider;
 
-    // Get the validation queue
+    // Get the monitoring queue for after validation
     const queueManager = QueueManager.getInstance();
-    this.queue = queueManager.createQueue<TokenValidationItem>(QueueNames.TOKEN_VALIDATION);
+    this.monitoringQueue = queueManager.createQueue(QueueNames.TOKEN_MONITORING);
 
-    // Auto-start when initialized
-    this.setupQueueListeners();
-    this.start();
+    // Setup token cleaner
+    this.setupTokenCleaner();
 
-    console.log("Token Security Validator initialized and started automatically");
+    console.log("Token Security Validator initialized");
   }
 
   /**
    * Get the singleton instance of TokenSecurityValidator
-   * The validator starts automatically when created
    */
-  public static getInstance(provider: Provider): TokenSecurityValidator {
+  static getInstance(provider: Provider): TokenSecurityValidator {
     if (!TokenSecurityValidator.instance) {
       TokenSecurityValidator.instance = new TokenSecurityValidator(provider);
     }
@@ -46,173 +55,75 @@ export class TokenSecurityValidator {
   /**
    * Get the validator status and health information
    */
-  public getStatus(): {
-    isRunning: boolean;
-    queueSize: number;
-    isProcessingToken: boolean;
+  getStatus(): {
     health: string;
     consecutiveErrors: number;
+    activeTokenCount: number;
   } {
-    const health = this.isRunning ? (this.consecutiveErrors > 0 ? "degraded" : "healthy") : "stopped";
+    const health = this.consecutiveErrors > 0 ? "degraded" : "healthy";
 
     return {
-      isRunning: this.isRunning,
-      queueSize: this.queue.size(),
-      isProcessingToken: this.isProcessingToken,
       health,
       consecutiveErrors: this.consecutiveErrors,
+      activeTokenCount: this.activeTokens.size,
     };
   }
 
   /**
-   * For emergency cases only - stops the validator
-   * (Not typically needed as the validator runs for the lifetime of the app)
+   * Get all currently active tokens
    */
-  public emergencyStop(): void {
-    if (!this.isRunning) {
-      console.log("Token Security Validator is already stopped");
-      return;
-    }
-
-    console.log("EMERGENCY STOP: Token Security Validator");
-    this.isRunning = false;
+  getActiveTokens(): ActiveToken[] {
+    return Array.from(this.activeTokens.values());
   }
 
   /**
-   * Restarts the validator if it was stopped
-   * (Not typically needed as the validator runs for the lifetime of the app)
+   * Check if a token is currently active
    */
-  public restart(): void {
-    this.consecutiveErrors = 0;
-    if (!this.isRunning) {
-      this.start();
-    } else {
-      console.log("Token Security Validator is already running");
-    }
+  isTokenActive(address: string): boolean {
+    return this.activeTokens.has(address.toLowerCase());
   }
 
   /**
-   * Setup queue event listeners
+   * Setup periodic cleaner for expired tokens
    */
-  private setupQueueListeners(): void {
-    // When a new item is enqueued, start processing if not already
-    this.queue.on("enqueued", () => {
-      console.log("Queue listener: new token enqueued for validation");
-      if (this.isRunning && !this.isProcessingToken) {
-        this.processNextToken();
-      }
-    });
-
-    // Listen for the process event
-    this.queue.on("process", () => {
-      if (this.isRunning && !this.isProcessingToken) {
-        this.processNextToken();
-      }
-    });
-
-    // Handle failure events
-    this.queue.on("failure", (item, error) => {
-      console.error(`Token validation permanently failed after multiple retries for ${item.data.address}`, error);
-      // Could add alerting or special handling for failed tokens here
-    });
+  private setupTokenCleaner(): void {
+    // Check for expired tokens every minute
+    setInterval(() => {
+      this.cleanExpiredTokens();
+    }, 60 * 1000);
   }
 
   /**
-   * Private method to start the validator
+   * Remove expired tokens from the active tokens map
    */
-  private start(): void {
-    if (this.isRunning) {
-      return;
+  private cleanExpiredTokens(): void {
+    const now = Date.now();
+    let expiredCount = 0;
+
+    for (const [address, token] of this.activeTokens.entries()) {
+      if (token.expiresAt <= now) {
+        this.activeTokens.delete(address);
+        expiredCount++;
+      }
     }
 
-    this.isRunning = true;
-
-    if (this.queue.size() > 0) {
-      this.processNextToken();
-    }
-  }
-
-  /**
-   * Process the next token in the queue
-   */
-  private async processNextToken(): Promise<void> {
-    if (!this.isRunning || this.queue.size() === 0) {
-      return;
-    }
-
-    // Setting these states separately for more detailed health monitoring
-    this.isProcessingToken = true;
-    this.queue.setProcessing(true);
-
-    try {
-      const queueItem = this.queue.dequeue();
-
-      if (!queueItem) {
-        this.isProcessingToken = false;
-        this.queue.setProcessing(false);
-        return;
-      }
-
-      await this.validateToken(queueItem);
-
-      // Success - reset error counter
-      if (this.consecutiveErrors > 0) {
-        this.consecutiveErrors = 0;
-        console.log("Token validation recovered from previous errors");
-      }
-
-      // Process next token if there are more in the queue
-      if (this.queue.size() > 0) {
-        setImmediate(() => this.processNextToken());
-      } else {
-        this.isProcessingToken = false;
-        this.queue.setProcessing(false);
-      }
-    } catch (error) {
-      this.consecutiveErrors++;
-      console.error(`Error processing token (consecutive errors: ${this.consecutiveErrors})`, error);
-
-      // If too many consecutive errors, pause processing briefly but recover automatically
-      if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
-        console.error(
-          `Too many consecutive errors (${this.consecutiveErrors}), pausing validation for ${this.errorResetTimeoutMs}ms`,
-        );
-
-        this.isProcessingToken = false;
-        this.queue.setProcessing(false);
-
-        // Auto-recover after timeout
-        setTimeout(() => {
-          console.log("Attempting to auto-recover token validation after pause");
-          this.consecutiveErrors = Math.max(0, this.consecutiveErrors - 3); // Reduce error count but don't fully reset
-
-          if (this.isRunning && this.queue.size() > 0) {
-            this.processNextToken();
-          }
-        }, this.errorResetTimeoutMs);
-      } else {
-        // Continue processing despite error
-        this.isProcessingToken = false;
-        this.queue.setProcessing(false);
-
-        // Continue processing next token after a small delay
-        setTimeout(() => {
-          if (this.isRunning && this.queue.size() > 0) {
-            this.processNextToken();
-          }
-        }, 1000); // Brief 1-second pause
-      }
+    if (expiredCount > 0) {
+      console.log(`Cleaned ${expiredCount} expired tokens, remaining active: ${this.activeTokens.size}`);
     }
   }
 
   /**
    * Validate a token's security
+   * This is the main validation logic that is called by the TokenQueueReceiver
    */
-  private async validateToken(queueItem: QueueItem<TokenValidationItem>): Promise<void> {
-    const { data: token } = queueItem;
+  public async validateTokenSecurity(token: TokenValidationItem): Promise<any> {
+    const normalizedAddress = token.address.toLowerCase();
 
     try {
       console.log(`Validating token security for: ${token.address}`);
+
+      // First add or refresh the token in the active tokens list
+      this.addOrRefreshActiveToken(normalizedAddress, token.creatorAddress);
 
       // TODO: Implement actual security validation logic
       // This would include checks for:
@@ -239,23 +150,55 @@ export class TokenSecurityValidator {
       console.log(`Security validation completed for: ${token.address}`);
       console.log("Result:", validationResult);
 
-      // After validation, it could be enqueued for monitoring if needed
+      // After validation, enqueue for monitoring if needed
       this.enqueueForMonitoring(token.address);
+
+      // Success - reset error counter
+      if (this.consecutiveErrors > 0) {
+        this.consecutiveErrors = 0;
+        console.log("Token validation recovered from previous errors");
+      }
+
+      return validationResult;
     } catch (error) {
+      this.consecutiveErrors++;
       console.error(`Error validating token: ${token.address}`, error);
       throw error;
     }
   }
 
   /**
+   * Add a token to the active tokens list or refresh its expiration time if already active
+   */
+  private addOrRefreshActiveToken(address: string, creatorAddress: string): void {
+    const normalizedAddress = address.toLowerCase();
+
+    // Check if token is already active
+    if (this.activeTokens.has(normalizedAddress)) {
+      console.log(`Token ${address} is already active, refreshing expiration`);
+      const activeToken = this.activeTokens.get(normalizedAddress)!;
+      activeToken.expiresAt = Date.now() + this.TOKEN_ACTIVE_DURATION_MS;
+      return;
+    }
+
+    // Create a new active token
+    const activeToken: ActiveToken = {
+      address: normalizedAddress,
+      creatorAddress,
+      addedAt: Date.now(),
+      expiresAt: Date.now() + this.TOKEN_ACTIVE_DURATION_MS,
+    };
+
+    // Add to active tokens
+    this.activeTokens.set(normalizedAddress, activeToken);
+    console.log(`Added token ${address} to active tokens (expires in 10 minutes)`);
+  }
+
+  /**
    * Enqueue a token for monitoring after validation
    */
   private enqueueForMonitoring(address: string): void {
-    // Get the monitoring queue
-    const queueManager = QueueManager.getInstance();
-    const monitorQueue = queueManager.createQueue(QueueNames.TOKEN_MONITORING);
-
-    monitorQueue.enqueue({
+    this.monitoringQueue.enqueue({
       address,
       lastMonitoredAt: null,
       status: "pending",

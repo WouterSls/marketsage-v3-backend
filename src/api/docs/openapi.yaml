@@ -48,13 +48,39 @@ paths:
       summary: Stop token discovery service
       description: Stops the token discovery service
       tags:
-        - Token Discovery 
+        - Token Discovery
       responses:
         "200":
           description: Token discovery service stopped
           content:
             application/json:
               schema:
+
+  /token-security-validator/status:
+    get:
+      summary: Token security validator status
+      description: Returns the current status of the token security validator
+      tags:
+        - Token Security Validation
+      responses:
+        "200":
+          description: Token security validator status
+          content:
+            application/json:
+              schema:
+  /token-security-validator/validate:
+    post:
+      summary: Validate token security
+      description: Validates the security of a token
+      tags:
+        - Token Security Validation
+      responses:
+        "200":
+          description: Token security validated
+          content:
+            application/json:
+              schema:
+
   /health:
     get:
       summary: Health check endpoint
@@ -75,71 +101,6 @@ paths:
                   version:
                     type: string
                     example: "1.0.0"
-
-  /services/status:
-    get:
-      summary: Services status check
-      description: Returns the status of all background services including the token security validator and monitor
-      tags:
-        - System
-      responses:
-        "200":
-          description: Services status information
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      isInitialized:
-                        type: boolean
-                        example: true
-                      tokenSecurityValidator:
-                        type: object
-                        properties:
-                          isRunning:
-                            type: boolean
-                            example: true
-                          queueSize:
-                            type: integer
-                            example: 0
-                          isProcessingToken:
-                            type: boolean
-                            example: false
-                          health:
-                            type: string
-                            enum: [healthy, degraded, stopped]
-                            example: "healthy"
-                          consecutiveErrors:
-                            type: integer
-                            example: 0
-                      tokenMonitorManager:
-                        type: object
-                        properties:
-                          isRunning:
-                            type: boolean
-                            example: true
-                          queueSize:
-                            type: integer
-                            example: 0
-        "500":
-          description: Error retrieving services status
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  error:
-                    type: string
-                    example: "Failed to get services status"
 
 components:
   schemas:
