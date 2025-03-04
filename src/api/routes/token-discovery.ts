@@ -12,7 +12,6 @@ router.get("/token-discovery/status", (req, res) => {
   });
 });
 
-// Start discovery service
 router.post("/token-discovery/start", (req, res) => {
   TokenDiscoveryManager.getInstance().start();
   res.json({
@@ -21,7 +20,6 @@ router.post("/token-discovery/start", (req, res) => {
   });
 });
 
-// Stop discovery service
 router.post("/token-discovery/stop", (req, res) => {
   TokenDiscoveryManager.getInstance().stop();
   res.json({

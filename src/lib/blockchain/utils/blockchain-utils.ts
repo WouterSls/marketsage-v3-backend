@@ -3,7 +3,7 @@ import { ethers, Provider } from "ethers";
 import { MINIMAL_ERC20_ABI } from "../contract-abis/contract-abis";
 import { ERC20 } from "../models/erc20";
 
-import { TechnicalError } from "../../../lib/errors/TechnicalError";
+import { Erc20Error } from "../../errors/Erc20Error";
 
 export async function createMinimalErc20(address: string, provider: Provider): Promise<ERC20> {
   const contract = new ethers.Contract(address, MINIMAL_ERC20_ABI, provider);
@@ -16,7 +16,7 @@ export async function createMinimalErc20(address: string, provider: Provider): P
   ]);
 
   if (name === "Not a token" || symbol === "Unknown" || totalSupply === "0") {
-    throw new TechnicalError("ERC20 creation: missing basic token information");
+    throw new Erc20Error("Not an ERC20");
   }
   const numberDecimals = Number(decimals);
 

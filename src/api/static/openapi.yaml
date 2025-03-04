@@ -1,0 +1,244 @@
+openapi: 3.0.0
+info:
+  title: Market Sage API
+  version: 1.0.0
+  description: MarketSage API for discovery, secrity validation, and monitoring
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+tags:
+  - name: Token Discovery
+    description: Token discovery operations
+  - name: Token Security Validation
+    description: Token security validation operations
+  - name: Token Monitoring
+    description: Token monitoring operations
+  - name: System
+    description: System operations and health checks
+
+paths:
+  /token-discovery/status:
+    get:
+      summary: Token discovery service status
+      description: Returns the current status of the token discovery service
+      tags:
+        - Token Discovery
+      responses:
+        "200":
+          description: Token discovery service status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceStatus"
+  /token-discovery/start:
+    post:
+      summary: Start token discovery service
+      description: Starts the token discovery service
+      tags:
+        - Token Discovery
+      responses:
+        "200":
+          description: Token discovery service started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceStatus"
+  /token-discovery/stop:
+    post:
+      summary: Stop token discovery service
+      description: Stops the token discovery service
+      tags:
+        - Token Discovery
+      responses:
+        "200":
+          description: Token discovery service stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceStatus"
+
+  /token-security-validator/status:
+    get:
+      summary: Token security validator status
+      description: Returns the current status of the token security validator
+      tags:
+        - Token Security Validation
+      responses:
+        "200":
+          description: Token security validator status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenSecurityValidatorStatus"
+  /token-security-validator/token:
+    post:
+      summary: Add new token to security validator
+      description: Adds a new token to the security validator
+      tags:
+        - Token Security Validation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenValidationItem"
+      responses:
+        "200":
+          description: Adds token to security validator and starts validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveToken"
+
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the API
+      tags:
+        - System
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  version:
+                    type: string
+                    example: "1.0.0"
+  /queues/stats:
+    get:
+      summary: Get queue statistics
+      description: Returns the statistics of all queues
+      tags:
+        - System
+      responses:
+        "200":
+          description: Queue statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueStatistics"
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+
+    ServiceStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [running, stopped, error]
+          example: "running"
+        uptime:
+          type: number
+          description: Uptime in seconds
+          example: 3600
+
+    QueueStatistics:
+      type: object
+      properties:
+        queues:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              pending:
+                type: number
+              processed:
+                type: number
+              failed:
+                type: number
+
+    TokenSecurityValidatorStatus:
+      type: object
+      properties:
+        statistics:
+          type: object
+          properties:
+            activeTokenCount:
+              type: number
+              description: Number of active tokens being validated
+            honeypotCount:
+              type: number
+              description: Number of honeypot tokens detected
+            rugpullCount:
+              type: number
+              description: Number of rugpull tokens detected
+            tokensCreated:
+              type: number
+              description: Number of tokens created
+
+    TokenValidationItem:
+      type: object
+      required:
+        - address
+        - creatorAddress
+      properties:
+        address:
+          type: string
+          description: The token contract address
+          example: "0x1234567890123456789012345678901234567890"
+        creatorAddress:
+          type: string
+          description: The address of the token creator
+          example: "0x0987654321098765432109876543210987654321"
+        discoveredAt:
+          type: number
+          description: Timestamp when the token was discovered (in milliseconds)
+          example: 1698512400000
+
+    ActiveToken:
+      type: object
+      properties:
+        address:
+          type: string
+          description: The token contract address
+          example: "0x1234567890123456789012345678901234567890"
+        creatorAddress:
+          type: string
+          description: The address of the token creator
+          example: "0x0987654321098765432109876543210987654321"
+        addedAt:
+          type: number
+          description: Timestamp when the token was added to the validator (in milliseconds)
+          example: 1698512400000
+        expiresAt:
+          type: number
+          description: Timestamp when the token validation expires (in milliseconds)
+          example: 1698513000000
+        hasBalance:
+          type: boolean
+          description: Whether the token has balance
+        hasLiquidity:
+          type: boolean
+          description: Whether the token has liquidity
+        erc20:
+          type: object
+          description: ERC20 token details
+          properties:
+            name:
+              type: string
+              example: "Sample Token"
+            symbol:
+              type: string
+              example: "STKN"
+            decimals:
+              type: number
+              example: 18
+            totalSupply:
+              type: string
+              example: "1000000000000000000000000"

@@ -19,7 +19,7 @@ export class TokenMonitorManager {
 
     // Get the monitoring queue
     const queueManager = QueueManager.getInstance();
-    this.queue = queueManager.createQueue<TokenMonitoringItem>(QueueNames.TOKEN_MONITORING);
+    this.queue = queueManager.getOrCreateQueue<TokenMonitoringItem>(QueueNames.TOKEN_MONITORING);
 
     // Setup queue listeners
     this.setupQueueListeners();
@@ -113,7 +113,6 @@ export class TokenMonitorManager {
    * This would be called on a schedule (like a cron job)
    */
   private async checkTokensForMonitoring(): Promise<void> {
-
     try {
       // TODO: Query the database for tokens that need monitoring
       // This would typically check based on:

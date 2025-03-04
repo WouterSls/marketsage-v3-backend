@@ -18,10 +18,7 @@ export class Queue<T> extends EventEmitter {
     this.maxRetries = maxRetries;
   }
 
-  /**
-   * Add an item to the queue
-   */
-  public enqueue(item: T): void {
+  enqueue(item: T): void {
     const queueItem: QueueItem<T> = {
       data: item,
       timestamp: Date.now(),
@@ -37,17 +34,11 @@ export class Queue<T> extends EventEmitter {
     }
   }
 
-  /**
-   * Get the next item from the queue without removing it
-   */
-  public peek(): QueueItem<T> | undefined {
+  peek(): QueueItem<T> | undefined {
     return this.items[0];
   }
 
-  /**
-   * Remove and return the next item from the queue
-   */
-  public dequeue(): QueueItem<T> | undefined {
+  dequeue(): QueueItem<T> | undefined {
     const item = this.items.shift();
     if (item) {
       console.log(`[Queue:${this.name}] Item dequeued, queue size: ${this.items.length}`);
@@ -55,31 +46,19 @@ export class Queue<T> extends EventEmitter {
     return item;
   }
 
-  /**
-   * Get the current queue size
-   */
-  public size(): number {
+  size(): number {
     return this.items.length;
   }
 
-  /**
-   * Mark the queue as processing or not
-   */
-  public setProcessing(isProcessing: boolean): void {
+  setProcessing(isProcessing: boolean): void {
     this.processing = isProcessing;
   }
 
-  /**
-   * Check if the queue is being processed
-   */
-  public isProcessing(): boolean {
+  isProcessing(): boolean {
     return this.processing;
   }
 
-  /**
-   * Handle a failed item - either retry or emit failure
-   */
-  public handleFailure(item: QueueItem<T>, error: Error): void {
+  handleFailure(item: QueueItem<T>, error: Error): void {
     if (item.retries === undefined) {
       item.retries = 0;
     }
@@ -95,10 +74,7 @@ export class Queue<T> extends EventEmitter {
     }
   }
 
-  /**
-   * Clear all items from the queue
-   */
-  public clear(): void {
+  clear(): void {
     const count = this.items.length;
     this.items = [];
     console.log(`[Queue:${this.name}] Queue cleared, removed ${count} items`);

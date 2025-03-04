@@ -33,7 +33,6 @@ async function startServer() {
     process.on("SIGINT", async () => {
       console.log("Gracefully shutting down server...");
 
-      // Shutdown services before closing server
       await services.shutdown();
 
       server.close(() => {

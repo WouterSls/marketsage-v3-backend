@@ -1,48 +1,36 @@
-import { Provider } from "ethers";
 import { QueueManager } from "../../lib/queues/QueueManager";
 import { QueueNames, TokenValidationItem } from "../../lib/queues/QueueTypes";
 import { Queue, QueueItem } from "../../lib/queues/Queue";
 import { TokenSecurityValidator } from "../TokenSecurityValidator";
 
-/**
- * Service that receives tokens from the queue and forwards them to the TokenSecurityValidator
- */
-export class TokenQueueReceiver {
-  private static instance: TokenQueueReceiver;
-  private provider: Provider;
+export class TokenValidationQueueReceiver {
+  private static instance: TokenValidationQueueReceiver;
+
+  private queueManager = QueueManager.getInstance();
   private queue: Queue<TokenValidationItem>;
-  private isRunning = false;
-  private isProcessingQueue = false;
   private tokenValidator: TokenSecurityValidator;
 
-  private constructor(provider: Provider, tokenValidator: TokenSecurityValidator) {
-    this.provider = provider;
+  private isRunning = false;
+  private isProcessingQueue = false;
+
+  private constructor(tokenValidator: TokenSecurityValidator) {
     this.tokenValidator = tokenValidator;
 
-    // Get the validation queue
-    const queueManager = QueueManager.getInstance();
-    this.queue = queueManager.createQueue<TokenValidationItem>(QueueNames.TOKEN_VALIDATION);
+    this.queue = this.queueManager.getOrCreateQueue<TokenValidationItem>(QueueNames.TOKEN_VALIDATION);
 
-    // Setup queue listeners
     this.setupQueueListeners();
     this.start();
 
     console.log("Token Queue Receiver initialized and started automatically");
   }
 
-  /**
-   * Get the singleton instance of TokenQueueReceiver
-   */
-  static getInstance(provider: Provider, tokenValidator: TokenSecurityValidator): TokenQueueReceiver {
-    if (!TokenQueueReceiver.instance) {
-      TokenQueueReceiver.instance = new TokenQueueReceiver(provider, tokenValidator);
+  static getInstance(tokenValidator: TokenSecurityValidator): TokenValidationQueueReceiver {
+    if (!TokenValidationQueueReceiver.instance) {
+      TokenValidationQueueReceiver.instance = new TokenValidationQueueReceiver(tokenValidator);
     }
-    return TokenQueueReceiver.instance;
+    return TokenValidationQueueReceiver.instance;
   }
 
-  /**
-   * Get the receiver status information
-   */
   getStatus(): {
     isRunning: boolean;
     queueSize: number;
@@ -55,34 +43,25 @@ export class TokenQueueReceiver {
     };
   }
 
-  /**
-   * Setup queue event listeners
-   */
   private setupQueueListeners(): void {
-    // When a new item is enqueued, start processing if not already
     this.queue.on("enqueued", () => {
-      console.log("Queue listener: new token enqueued for processing");
+      console.log(`Queue Receiver: new token enqueued for processing on queue ${QueueNames.TOKEN_VALIDATION}`);
       if (this.isRunning && !this.isProcessingQueue) {
         this.processNextToken();
       }
     });
 
-    // Listen for the process event
     this.queue.on("process", () => {
       if (this.isRunning && !this.isProcessingQueue) {
         this.processNextToken();
       }
     });
 
-    // Handle failure events
     this.queue.on("failure", (item, error) => {
       console.error(`Token processing permanently failed after multiple retries for ${item.data.address}`, error);
     });
   }
 
-  /**
-   * Start the receiver
-   */
   private start(): void {
     if (this.isRunning) {
       return;
@@ -95,9 +74,6 @@ export class TokenQueueReceiver {
     }
   }
 
-  /**
-   * Process the next token in the queue
-   */
   private async processNextToken(): Promise<void> {
     if (!this.isRunning || this.queue.size() === 0) {
       return;
@@ -117,7 +93,6 @@ export class TokenQueueReceiver {
 
       await this.processTokenItem(queueItem);
 
-      // Process next token if there are more in the queue
       if (this.queue.size() > 0) {
         setImmediate(() => this.processNextToken());
       } else {
@@ -130,7 +105,6 @@ export class TokenQueueReceiver {
       this.isProcessingQueue = false;
       this.queue.setProcessing(false);
 
-      // Continue processing after a small delay
       setTimeout(() => {
         if (this.isRunning && this.queue.size() > 0) {
           this.processNextToken();
@@ -139,18 +113,11 @@ export class TokenQueueReceiver {
     }
   }
 
-  /**
-   * Process a token validation item from the queue
-   * Forwards the token to the TokenSecurityValidator
-   */
   private async processTokenItem(queueItem: QueueItem<TokenValidationItem>): Promise<void> {
     const { data: token } = queueItem;
 
     try {
-      console.log(`Processing token: ${token.address}`);
-
-      // Send to validator for security validation
-      await this.tokenValidator.validateTokenSecurity(token);
+      await this.tokenValidator.addNewToken(token);
     } catch (error) {
       console.error(`Error processing token ${token.address}:`, error);
       throw error;

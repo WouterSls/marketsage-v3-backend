@@ -3,7 +3,7 @@ import { Provider } from "ethers";
 import { ValidationResult } from "./models/contract-validator.types";
 import { ContractValidatorService } from "./services/ContractValidatorService";
 import { BlockEventPoller } from "./services/BlockEventPoller";
-import { TokenQueueService } from "./services/TokenQueueService";
+import { TokenValidationQueueService } from "../token-security-validator/queue/TokenValidationQueueService";
 
 import { DISCOVERY_CONFIG } from "./config/discovery-config";
 
@@ -17,7 +17,7 @@ export class TokenDiscoveryManager {
 
   private blockEventPoller: BlockEventPoller | null = null;
   private contractValidator: ContractValidatorService | null = null;
-  private tokenQueue: TokenQueueService | null = null;
+  private tokenValidationQueueService: TokenValidationQueueService | null = null;
 
   private scanInterval: NodeJS.Timeout | null = null;
   private lastScannedBlock = 0;
@@ -38,7 +38,7 @@ export class TokenDiscoveryManager {
     return TokenDiscoveryManager.instance;
   }
 
-  public async initialize(config: { provider: Provider; baseScanApiKey: string }): Promise<void> {
+  async initialize(config: { provider: Provider; baseScanApiKey: string }): Promise<void> {
     if (this.isInitialized) {
       return;
     }
@@ -47,7 +47,7 @@ export class TokenDiscoveryManager {
       // Initialize components
       this.blockEventPoller = new BlockEventPoller(config.provider);
       this.contractValidator = new ContractValidatorService(config.provider, config.baseScanApiKey);
-      this.tokenQueue = new TokenQueueService();
+      this.tokenValidationQueueService = new TokenValidationQueueService();
 
       // Get current block
       this.lastScannedBlock = await config.provider.getBlockNumber();
@@ -61,7 +61,14 @@ export class TokenDiscoveryManager {
     }
   }
 
-  public async start(): Promise<void> {
+  getStatus(): { isRunning: boolean; statistics: any } {
+    return {
+      isRunning: this.isRunning,
+      statistics: { ...this.statistics },
+    };
+  }
+
+  async start(): Promise<void> {
     if (!this.isInitialized) {
       throw new TokenDiscoveryManagerError("Token Discovery Manager not initialized");
     }
@@ -91,7 +98,7 @@ export class TokenDiscoveryManager {
     }
   }
 
-  public async stop(): Promise<void> {
+  async stop(): Promise<void> {
     if (!this.isRunning) {
       console.log("Token Discovery already stopped");
       return;
@@ -113,15 +120,8 @@ export class TokenDiscoveryManager {
     }
   }
 
-  public getStatus(): { isRunning: boolean; statistics: any } {
-    return {
-      isRunning: this.isRunning,
-      statistics: { ...this.statistics },
-    };
-  }
-
   private async scanBlocks(): Promise<void> {
-    if (!this.blockEventPoller || !this.contractValidator || !this.tokenQueue) {
+    if (!this.blockEventPoller || !this.contractValidator || !this.tokenValidationQueueService) {
       throw new TokenDiscoveryManagerError("Token Discovery components not initialized");
     }
 
@@ -140,9 +140,7 @@ export class TokenDiscoveryManager {
         this.statistics.blocksScanned++;
         this.statistics.lastScannedBlock = blockNumber;
         this.lastScannedBlock = blockNumber;
-
       }
-
     } catch (error) {
       console.error("Error during block scanning", error);
       throw error;
@@ -150,7 +148,7 @@ export class TokenDiscoveryManager {
   }
 
   private async processBlock(blockNumber: number): Promise<void> {
-    if (!this.blockEventPoller || !this.contractValidator || !this.tokenQueue) {
+    if (!this.blockEventPoller || !this.contractValidator || !this.tokenValidationQueueService) {
       throw new TokenDiscoveryManagerError("Token Discovery components not initialized");
     }
 
@@ -182,10 +180,10 @@ export class TokenDiscoveryManager {
           const token: TokenValidationItem = {
             address,
             creatorAddress,
-            blockNumber,
+            discoveredAt: Date.now(),
           };
 
-          await this.tokenQueue.enqueueToken(token);
+          await this.tokenValidationQueueService.enqueueToken(token);
           this.statistics.tokensValidated++;
         }
       }

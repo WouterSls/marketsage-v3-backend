@@ -5,25 +5,16 @@ import path from "path";
 import cors from "cors";
 
 // Import routes
-import healthRoutes from "./api/routes/health";
+import healthRoutes from "./api/routes/system";
 import tokenDiscoveryRoutes from "./api/routes/token-discovery";
 import tokenSecurityValidatorRoutes from "./api/routes/token-security-validator";
 
 const app = express();
+const openApiSpec = YAML.load(path.join(__dirname, "./api/static/openapi.yaml"));
 
 // Middleware
 app.use(express.json());
 app.use(cors({ origin: "*" }));
-
-// Load OpenAPI spec
-const openApiSpec = YAML.load(path.join(__dirname, "./api/docs/openapi.yaml"));
-
-// Set provider for routes to use
-/** 
-const PROVIDER_URL = process.env.PROVIDER_URL || "http://localhost:8545";
-const provider = new ethers.JsonRpcProvider(PROVIDER_URL);
-app.set("provider", provider);
-*/
 
 // Mount API routes
 app.use("/api/v1", healthRoutes);

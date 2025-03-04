@@ -1,2 +1,2 @@
 export * from "./TokenDiscoveryManager";
-export * from "./services/TokenQueueService";
+export * from "../token-security-validator/queue/TokenValidationQueueService";
