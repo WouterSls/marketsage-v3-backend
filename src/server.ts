@@ -12,14 +12,16 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 const PORT = process.env.PORT || 8080;
 const BASESCAN_API_KEY = process.env.BASESCAN_API_KEY || "";
 const BASE_RPC_URL = process.env.BASE_RPC_URL || "";
+const PRIVATE_KEY = process.env.MS_KEY || "";
 
 async function startServer() {
   try {
-    // Initialize provider
+    // Initialize provider | wallet
     const provider = new ethers.JsonRpcProvider(BASE_RPC_URL);
+    const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
     // Initialize services
-    const services = Services.getInstance(provider, BASESCAN_API_KEY);
+    const services = Services.getInstance(provider, wallet, BASESCAN_API_KEY);
     await services.initialize();
 
     // Create HTTP server

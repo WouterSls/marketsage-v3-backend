@@ -9,6 +9,7 @@ import { DISCOVERY_CONFIG } from "./config/discovery-config";
 
 import { TokenDiscoveryManagerError } from "../lib/errors/TokenDiscoverManagerError";
 import { TokenValidationItem } from "../lib/queues/QueueTypes";
+import { TokenSecurityValidator } from "../token-security-validator/TokenSecurityValidator";
 
 export class TokenDiscoveryManager {
   private static instance: TokenDiscoveryManager;
@@ -47,7 +48,6 @@ export class TokenDiscoveryManager {
       // Initialize components
       this.blockEventPoller = new BlockEventPoller(config.provider);
       this.contractValidator = new ContractValidatorService(config.provider, config.baseScanApiKey);
-      this.tokenValidationQueueService = new TokenValidationQueueService();
 
       // Get current block
       this.lastScannedBlock = await config.provider.getBlockNumber();
@@ -177,13 +177,11 @@ export class TokenDiscoveryManager {
             throw new TokenDiscoveryManagerError("Invalid creator address");
           }
 
-          const token: TokenValidationItem = {
+          await TokenSecurityValidator.getInstance().addNewToken({
             address,
             creatorAddress,
             discoveredAt: Date.now(),
-          };
-
-          await this.tokenValidationQueueService.enqueueToken(token);
+          });
           this.statistics.tokensValidated++;
         }
       }

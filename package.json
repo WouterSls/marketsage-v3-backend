@@ -7,10 +7,8 @@
   "type": "commonjs",
   "main": "server.ts",
   "scripts": {
-    "dev": "rm -rf js-build/src/api/docs && cp -r src/api/docs js-build/src/api/docs && npx nodemon js-build/src/server.js",
-    "setup": "rm -rf js-build && rm -rf data/db.sqlite && npx tsc && npx drizzle-kit generate",
-    "start": "node js-build/interaction-scripts/startBot.js",
-    "stop": "node js-build/interaction-scripts/stopBot.js"
+    "dev": "rm -rf js-build/src/api/static && cp -r src/api/static js-build/src/api/static && npx nodemon js-build/src/server.js",
+    "setup": "rm -rf js-build && rm -rf data/db.sqlite && npx tsc && npx drizzle-kit generate"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",

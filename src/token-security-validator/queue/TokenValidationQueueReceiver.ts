@@ -117,7 +117,7 @@ export class TokenValidationQueueReceiver {
     const { data: token } = queueItem;
 
     try {
-      await this.tokenValidator.addNewToken(token);
+      await this.tokenValidator.validateToken(token.address);
     } catch (error) {
       console.error(`Error processing token ${token.address}:`, error);
       throw error;

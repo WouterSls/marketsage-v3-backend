@@ -7,5 +7,15 @@ export interface ActiveToken {
   expiresAt: number;
   hasBalance: boolean;
   hasLiquidity: boolean;
+  protocol: DEX;
   erc20: ERC20;
+  isBeingProcessed: boolean;
+}
+
+export type DEX = "uniV2" | "uniV3" | "uniV4" | "aerodrome" | "balancer" | null;
+
+export interface LiquidityInfo {
+  hasLiquidity: boolean;
+  protocol: DEX;
+  liquidityETH: string;
 }

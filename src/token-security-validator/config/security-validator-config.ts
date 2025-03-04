@@ -1,0 +1,6 @@
+export const SECURITY_VALIDATOR_CONFIG = {
+  MIN_ETH_LIQUIDITY: "2", // most scam tokens have 1.5 eth or 2.25 eth liquidity
+  TOKEN_ACTIVE_DURATION_MS: 10 * 60 * 1000,
+  TOKEN_VALIDATION_INTERVAL_MS: 60 * 1000,
+  TOKEN_CLEANUP_INTERVAL_MS: 60 * 1000,
+};

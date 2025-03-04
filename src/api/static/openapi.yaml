@@ -91,6 +91,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ActiveToken"
+  /token-security-validator/liquidity-check:
+    post:
+      summary: Check liquidity of a token
+      description: Checks the liquidity of a token
+      tags:
+        - Token Security Validation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenValidationItem"
+      responses:
+        "200":
+          description: Liquidity check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiquidityCheckResult"
 
   /health:
     get:
@@ -242,3 +261,15 @@ components:
             totalSupply:
               type: string
               example: "1000000000000000000000000"
+
+    LiquidityCheckResult:
+      type: object
+      properties:
+        hasLiquidity:
+          type: boolean
+        protocol:
+          type: string
+          description: The protocol of the token
+          example: "uniV2"
+        liquidityETH:
+          type: string

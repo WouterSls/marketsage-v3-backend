@@ -5,8 +5,6 @@ export enum QueueNames {
 
 export interface TokenValidationItem {
   address: string;
-  creatorAddress: string;
-  discoveredAt: number;
 }
 
 export interface TokenMonitoringItem {
