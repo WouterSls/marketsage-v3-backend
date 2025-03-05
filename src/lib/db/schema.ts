@@ -31,7 +31,7 @@ export const token = sqliteTable("token", {
   dex: text("dex", { enum: ["uniswapv2", "uniswapv3", "uniswapv4", "aerodrome"] }),
   isSuspicious: integer("is_suspicious", { mode: "boolean" }).notNull().default(false),
   retryCounter: integer("retry_counter").notNull().default(0),
-  createdAt: integer("created_at")
+  discoveredAt: integer("discovered_at")
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
   updatedAt: integer("updated_at")

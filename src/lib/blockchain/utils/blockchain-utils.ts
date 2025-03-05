@@ -1,9 +1,10 @@
-import { ethers, Provider } from "ethers";
+import { ethers, Provider, Wallet } from "ethers";
 
 import { MINIMAL_ERC20_ABI } from "../contract-abis/contract-abis";
-import { ERC20 } from "../models/erc20";
+import { ERC20 } from "../models/Erc20";
 
 import { Erc20Error } from "../../errors/Erc20Error";
+import { TechnicalError } from "../../errors/TechnicalError";
 
 export async function createMinimalErc20(address: string, provider: Provider): Promise<ERC20> {
   const contract = new ethers.Contract(address, MINIMAL_ERC20_ABI, provider);
@@ -23,4 +24,29 @@ export async function createMinimalErc20(address: string, provider: Provider): P
   const totalSupplyNumber = ethers.formatUnits(totalSupply, numberDecimals);
 
   return new ERC20(name, symbol, address, numberDecimals, totalSupplyNumber, contract);
+}
+
+export function extractRawTokenOutputFromLogs(logs: any, token: ERC20): bigint {
+  const transferEvent = logs.find((log: any) => log.address.toLowerCase() === token.getTokenAddress().toLowerCase());
+  const rawReceivedTokenAmount = transferEvent ? transferEvent.data : "Unknown";
+  return rawReceivedTokenAmount;
+}
+
+export async function approveTokenSpending(wallet: Wallet, token: ERC20, spenderAddress: string, rawAmount: bigint) {
+  const approveTxRequest = await token.createApproveTransaction(spenderAddress, rawAmount);
+  const populatedApproveTransaction = await wallet.populateTransaction(approveTxRequest);
+  const approveTxResponse = await wallet.sendTransaction(populatedApproveTransaction);
+  const approveTxReceipt = await approveTxResponse.wait();
+
+  if (!approveTxReceipt) throw new TechnicalError("Failed to approve token spending | no transaction receipt");
+  const gasCost = approveTxReceipt.gasPrice * approveTxReceipt.gasUsed;
+
+  const gasCostFormatted = ethers.formatEther(gasCost);
+  return gasCostFormatted;
+}
+
+export function calculateSlippageAmount(rawAmount: bigint, slippageTolerance: number) {
+  const slippageMultiplier = slippageTolerance * 100;
+  const slippageAmount = (rawAmount * BigInt(slippageMultiplier)) / 100n;
+  return slippageAmount;
 }

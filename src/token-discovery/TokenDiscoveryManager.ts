@@ -3,12 +3,10 @@ import { Provider } from "ethers";
 import { ValidationResult } from "./models/contract-validator.types";
 import { ContractValidatorService } from "./services/ContractValidatorService";
 import { BlockEventPoller } from "./services/BlockEventPoller";
-import { TokenValidationQueueService } from "../token-security-validator/queue/TokenValidationQueueService";
 
 import { DISCOVERY_CONFIG } from "./config/discovery-config";
 
-import { TokenDiscoveryManagerError } from "../lib/errors/TokenDiscoverManagerError";
-import { TokenValidationItem } from "../lib/queues/QueueTypes";
+import { TokenDiscoveryManagerError } from "../lib/errors/TokenDiscoveryManagerError";
 import { TokenSecurityValidator } from "../token-security-validator/TokenSecurityValidator";
 
 export class TokenDiscoveryManager {
@@ -18,7 +16,6 @@ export class TokenDiscoveryManager {
 
   private blockEventPoller: BlockEventPoller | null = null;
   private contractValidator: ContractValidatorService | null = null;
-  private tokenValidationQueueService: TokenValidationQueueService | null = null;
 
   private scanInterval: NodeJS.Timeout | null = null;
   private lastScannedBlock = 0;
@@ -54,7 +51,7 @@ export class TokenDiscoveryManager {
       this.statistics.lastScannedBlock = this.lastScannedBlock;
 
       this.isInitialized = true;
-      console.log("Token Discovery Manager initialized successfully");
+      console.log("Token Discovery Manager initialized");
     } catch (error) {
       console.error("Failed to initialize Token Discovery Manager", error);
       throw error;
@@ -121,7 +118,7 @@ export class TokenDiscoveryManager {
   }
 
   private async scanBlocks(): Promise<void> {
-    if (!this.blockEventPoller || !this.contractValidator || !this.tokenValidationQueueService) {
+    if (!this.blockEventPoller || !this.contractValidator) {
       throw new TokenDiscoveryManagerError("Token Discovery components not initialized");
     }
 
@@ -148,7 +145,7 @@ export class TokenDiscoveryManager {
   }
 
   private async processBlock(blockNumber: number): Promise<void> {
-    if (!this.blockEventPoller || !this.contractValidator || !this.tokenValidationQueueService) {
+    if (!this.blockEventPoller || !this.contractValidator) {
       throw new TokenDiscoveryManagerError("Token Discovery components not initialized");
     }
 
@@ -180,7 +177,6 @@ export class TokenDiscoveryManager {
           await TokenSecurityValidator.getInstance().addNewToken({
             address,
             creatorAddress,
-            discoveredAt: Date.now(),
           });
           this.statistics.tokensValidated++;
         }

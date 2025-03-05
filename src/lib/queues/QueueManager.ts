@@ -16,7 +16,6 @@ export class QueueManager {
   getOrCreateQueue<T>(name: string, maxRetries = 3): Queue<T> {
     if (!this.queues.has(name)) {
       this.queues.set(name, new Queue<T>(name, maxRetries));
-      console.log(`Created new queue: ${name}`);
     }
 
     return this.queues.get(name) as Queue<T>;

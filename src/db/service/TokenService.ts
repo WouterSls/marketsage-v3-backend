@@ -1,7 +1,7 @@
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../lib/db/schema";
 
-import { TokenRepository, SelectToken, InsertToken } from "./TokenRepository";
+import { TokenRepository, SelectToken, InsertToken } from "../repository/TokenRepository";
 import { TokenStatus } from "../../lib/db/schema";
 
 import { TechnicalError } from "../../lib/errors/TechnicalError";
@@ -54,7 +54,7 @@ export class TokenService {
    * @param address - The token's address
    * @returns Promise resolving to the token data
    */
-  async getTokenByAddress(address: string): Promise<SelectToken> {
+  async getTokenByAddress(address: string): Promise<SelectToken | null> {
     return this.repository.getTokenByAddress(address);
   }
 
@@ -69,8 +69,9 @@ export class TokenService {
   async createToken(
     tokenAddress: string,
     tokenName: string,
-    status: TokenStatus,
     creatorAddress: string,
+    discoveredAt: number,
+    status: TokenStatus,
   ): Promise<SelectToken> {
     try {
       if (tokenAddress.length !== 42 || !tokenAddress.startsWith("0x")) {
@@ -82,12 +83,13 @@ export class TokenService {
       }
 
       const nowUnix = Math.floor(Date.now() / 1000);
+
       const tokenInfo: InsertToken = {
         address: tokenAddress,
         name: tokenName,
-        status,
-        creatorAddress,
-        createdAt: nowUnix,
+        creatorAddress: creatorAddress,
+        status: status,
+        discoveredAt: discoveredAt,
         updatedAt: nowUnix,
       };
 
@@ -127,7 +129,6 @@ export class TokenService {
     return this.repository.updateToken({
       address,
       status: "archived",
-      updatedAt: Math.floor(Date.now() / 1000),
     });
   }
 
@@ -138,14 +139,13 @@ export class TokenService {
    * @throws Error if token check fails (except for "Token not found")
    */
   async isArchived(address: string): Promise<boolean> {
+    const archivedStatuses = ["archived", "honeypot", "rugpull", "noliquidity"];
     try {
       const token = await this.repository.getTokenByAddress(address);
-      if (
-        token.status === "archived" ||
-        token.status === "honeypot" ||
-        token.status === "rugpull" ||
-        token.isSuspicious
-      ) {
+      if (!token) {
+        throw new TechnicalError(`Token ${address} not found in database`);
+      }
+      if (archivedStatuses.includes(token.status)) {
         return true;
       }
       return false;

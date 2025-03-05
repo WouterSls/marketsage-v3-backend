@@ -210,15 +210,11 @@ components:
         address:
           type: string
           description: The token contract address
-          example: "0x1234567890123456789012345678901234567890"
+          example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
         creatorAddress:
           type: string
           description: The address of the token creator
-          example: "0x0987654321098765432109876543210987654321"
-        discoveredAt:
-          type: number
-          description: Timestamp when the token was discovered (in milliseconds)
-          example: 1698512400000
+          example: "0x6aAFF8af0ae8017725312C388bA3745dfE91185B"
 
     ActiveToken:
       type: object

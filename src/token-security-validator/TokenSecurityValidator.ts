@@ -3,13 +3,14 @@ import { TokenMonitoringQueueService } from "../token-monitor/queue/TokenMonitor
 import { sleep } from "../lib/utils/helper-functions";
 import { TokenSecurityValidatorError } from "../lib/errors/TokenSecurityValidatorError";
 import { ActiveToken } from "./models/token-security-validator.types";
-import { TokenService } from "../db/token/TokenService";
+import { TokenService } from "../db/service/TokenService";
 import { createMinimalErc20 } from "../lib/blockchain/utils/blockchain-utils";
 import { Provider, Wallet } from "ethers";
 import { LiquidityCheckingService } from "./services/LiquidityCheckingService";
-import { ChainConfig } from "../lib/blockchain/models/chain-config";
+import { ChainConfig } from "../lib/blockchain/config/chain-config";
 import { TokenValidationQueueService } from "./queue/TokenValidationQueueService";
 import { SECURITY_VALIDATOR_CONFIG } from "./config/security-validator-config";
+import { HoneypotCheckingService } from "./services/HoneypotCheckingService";
 
 export class TokenSecurityValidator {
   private static instance: TokenSecurityValidator;
@@ -27,8 +28,9 @@ export class TokenSecurityValidator {
 
   private tokenService: TokenService | null = null;
   private liquidityCheckingService: LiquidityCheckingService | null = null;
+  private honeypotCheckingService: HoneypotCheckingService | null = null;
+
   private provider: Provider | null = null;
-  private wallet: Wallet | null = null;
 
   private constructor() {}
 
@@ -45,14 +47,15 @@ export class TokenSecurityValidator {
     }
 
     this.provider = config.provider;
-    this.wallet = config.wallet;
+
     this.tokenValidationQueueService = new TokenValidationQueueService();
     this.tokenMonitoringQueueService = new TokenMonitoringQueueService();
+
     this.tokenService = new TokenService();
     this.liquidityCheckingService = new LiquidityCheckingService(config.provider, config.chainConfig);
+    this.honeypotCheckingService = new HoneypotCheckingService(config.wallet, config.chainConfig);
 
     this.setupTokenValidator();
-    //this.setupTokenCleaner();
 
     console.log("Token Security Validator initialized");
 
@@ -78,8 +81,14 @@ export class TokenSecurityValidator {
     }
     return this.liquidityCheckingService;
   }
+  getHoneypotCheckingService(): HoneypotCheckingService {
+    if (!this.honeypotCheckingService) {
+      throw new TokenSecurityValidatorError("Honeypot checking service not initialized");
+    }
+    return this.honeypotCheckingService;
+  }
 
-  async addNewToken(token: { address: string; creatorAddress: string; discoveredAt: number }): Promise<ActiveToken> {
+  async addNewToken(token: { address: string; creatorAddress: string }): Promise<ActiveToken> {
     if (!this.tokenMonitoringQueueService || !this.tokenService) {
       throw new TokenSecurityValidatorError("Token monitoring queue service or token service not initialized");
     }
@@ -93,12 +102,13 @@ export class TokenSecurityValidator {
 
     try {
       const erc20 = await createMinimalErc20(normalizedAddress, this.provider!);
+      const addedAt = Date.now();
 
       const activeToken: ActiveToken = {
         address: normalizedAddress,
         creatorAddress: token.creatorAddress,
-        addedAt: token.discoveredAt,
-        expiresAt: token.discoveredAt + SECURITY_VALIDATOR_CONFIG.TOKEN_ACTIVE_DURATION_MS,
+        addedAt: addedAt,
+        expiresAt: addedAt + SECURITY_VALIDATOR_CONFIG.TOKEN_ACTIVE_DURATION_MS,
         hasBalance: false,
         hasLiquidity: false,
         protocol: null,
@@ -109,16 +119,24 @@ export class TokenSecurityValidator {
       this.activeTokens.set(normalizedAddress, activeToken);
       console.log(`Added token ${normalizedAddress} to active tokens (expires in 10 minutes)`);
 
+      this.identifyTokensForValidation();
+
       return activeToken;
     } catch (error) {
-      console.error(`Error validating token: ${token.address}`, error);
+      console.error(`Error adding token: ${token.address}`, error);
       throw error;
     }
   }
 
   async validateToken(tokenAddress: string): Promise<void> {
-    if (!this.tokenMonitoringQueueService || !this.tokenService || !this.liquidityCheckingService) {
+    if (!this.tokenService || !this.liquidityCheckingService || !this.honeypotCheckingService) {
       throw new TokenSecurityValidatorError("Token monitoring queue service or token service not initialized");
+    }
+
+    const token = await this.tokenService.getTokenByAddress(tokenAddress);
+
+    if (token) {
+      throw new TokenSecurityValidatorError(`Token ${tokenAddress} already exists in database`);
     }
 
     const activeToken = this.activeTokens.get(tokenAddress);
@@ -127,47 +145,83 @@ export class TokenSecurityValidator {
     }
 
     try {
-      console.log(`Validating token: ${tokenAddress}`);
+      console.log(`Validating Token: ${activeToken.erc20.getName()}`);
 
+      console.log(`\nStarting Liquidity Detection for ${activeToken.erc20.getName()}...`);
+      console.log("--------------------------------");
       const liquidityCheckResult = await this.liquidityCheckingService.validateInitialLiquidity(activeToken);
       if (!liquidityCheckResult.hasLiquidity) {
-        console.log(`Token ${tokenAddress} does not have liquidity`);
+        console.log(`No initial liquidity found`);
         return;
       }
-      console.log("Token has liquidity");
-      console.log("token:", activeToken);
-      console.log("Sleeping for 90 seconds...");
+
+      console.log("Initial liquidity found, waiting for 90 seconds to check for instant rugpull...");
       await sleep(90);
-      console.log("Sleeping done");
-      console.log("Insta rug checking...");
       const rugpullCheckResult = await this.liquidityCheckingService.rugpullCheck(activeToken);
-      console.log("Rugpull check result:", rugpullCheckResult);
-
-      //await this.validateToken(token);
-      //-> await this.honeypotCheck(activeToken);
-      console.log("Token validated");
-
-      //this.tokenService.createToken(token.address, token.erc20.getName(), "buyable", token.creatorAddress);
-      //this.tokenMonitoringQueueService.enqueueToken(token.address);
-    } finally {
-      // Reset the processing flag when validation is complete or fails
-      if (activeToken) {
-        activeToken.isBeingProcessed = false;
+      if (rugpullCheckResult.isRugpull) {
+        console.log("Rugpull detected for token: ", activeToken.erc20.getName());
+        this.activeTokens.delete(tokenAddress);
+        this.statistics.rugpullCount++;
+        return;
       }
+      console.log("No instant rugpull detected");
+
+      console.log(`\nStarting Honeypot Detection for ${activeToken.erc20.getName()}...`);
+      console.log("--------------------------------");
+      const honeypotCheckResult = await this.honeypotCheckingService.honeypotCheck(activeToken);
+      if (honeypotCheckResult.isHoneypot) {
+        console.log(
+          `Honeypot detected for token: ${activeToken.erc20.getName()} | reason: ${honeypotCheckResult.reason}`,
+        );
+        this.activeTokens.delete(tokenAddress);
+        this.statistics.honeypotCount++;
+        return;
+      }
+
+      const tokenName = activeToken.erc20.getName();
+      const creatorAddress = activeToken.creatorAddress;
+      const discoveredAt = activeToken.addedAt;
+      const status = "buyable";
+
+      this.tokenService.createToken(tokenAddress, tokenName, creatorAddress, discoveredAt, status);
+      this.statistics.tokensCreated++;
+      this.activeTokens.delete(tokenAddress);
+
+      console.log("Token validated successfully & added to database");
+    } finally {
+      activeToken.isBeingProcessed = false;
     }
   }
 
   private async setupTokenValidator(): Promise<void> {
     setInterval(() => {
+      console.log("Token validator started...");
+      this.cleanExpiredTokens();
       this.identifyTokensForValidation();
     }, SECURITY_VALIDATOR_CONFIG.TOKEN_VALIDATION_INTERVAL_MS);
+  }
+  private cleanExpiredTokens(): void {
+    const now = Date.now();
+    let expiredCount = 0;
+
+    for (const [address, token] of this.activeTokens.entries()) {
+      if (token.expiresAt <= now) {
+        console.log("expires at", token.expiresAt, "now", now);
+        this.activeTokens.delete(address);
+        expiredCount++;
+      }
+    }
+
+    if (expiredCount > 0) {
+      console.log(`Cleaned ${expiredCount} expired tokens, remaining active: ${this.activeTokens.size}`);
+    } else {
+      console.log("No expired tokens found");
+    }
   }
   private async identifyTokensForValidation(): Promise<void> {
     if (!this.tokenValidationQueueService) {
       throw new TokenSecurityValidatorError("Token validation queue service not initialized");
     }
-
-    console.log("Validating tokens...");
 
     const activeTokens = this.getActiveTokens();
 
@@ -175,7 +229,7 @@ export class TokenSecurityValidator {
       console.log("No tokens to validate");
       return;
     }
-    console.log("Validating", activeTokens.length, "tokens");
+    console.log("Identified", activeTokens.length, "tokens for validation");
 
     for (const token of activeTokens) {
       if (!token.isBeingProcessed) {
@@ -184,28 +238,6 @@ export class TokenSecurityValidator {
       } else {
         console.log(`Token ${token.address} is already being processed, skipping validation`);
       }
-    }
-  }
-
-  private setupTokenCleaner(): void {
-    setInterval(() => {
-      this.cleanExpiredTokens();
-    }, SECURITY_VALIDATOR_CONFIG.TOKEN_CLEANUP_INTERVAL_MS);
-  }
-  private cleanExpiredTokens(): void {
-    console.log("Cleaning expired tokens...");
-    const now = Date.now();
-    let expiredCount = 0;
-
-    for (const [address, token] of this.activeTokens.entries()) {
-      if (token.expiresAt <= now) {
-        this.activeTokens.delete(address);
-        expiredCount++;
-      }
-    }
-
-    if (expiredCount > 0) {
-      console.log(`Cleaned ${expiredCount} expired tokens, remaining active: ${this.activeTokens.size}`);
     }
   }
 }

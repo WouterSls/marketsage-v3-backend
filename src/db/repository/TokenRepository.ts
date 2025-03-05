@@ -64,12 +64,12 @@ export class TokenRepository {
    * @returns Promise resolving to the token data
    * @throws TechnicalError if token is not found or if multiple tokens are found
    */
-  async getTokenByAddress(address: string): Promise<SelectToken> {
+  async getTokenByAddress(address: string): Promise<SelectToken | null> {
     try {
       const result = await this.db.select().from(token).where(eq(token.address, address));
 
       if (result.length === 0) {
-        throw new TechnicalError("Token not found");
+        return null;
       }
 
       if (result.length > 1) {

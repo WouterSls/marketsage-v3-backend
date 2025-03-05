@@ -1,20 +1,21 @@
 import { ethers, Provider } from "ethers";
 
-import { ChainConfig } from "../../lib/blockchain/models/chain-config";
+import { ChainConfig } from "../../lib/blockchain/config/chain-config";
 
 import { ActiveToken, DEX, LiquidityInfo } from "../models/token-security-validator.types";
 
 import { SECURITY_VALIDATOR_CONFIG } from "../config/security-validator-config";
 
 import { TechnicalError } from "../../lib/errors/TechnicalError";
-import { SelectToken } from "../../db/token/TokenRepository";
+import { SelectToken } from "../../db/repository/TokenRepository";
+
 export class LiquidityCheckingService {
   private WETH_ADDRESS: string | null = null;
   private UNI_V2_FACTORY_ADDRESS: string | null = null;
   private UNI_V3_FACTORY_ADDRESS: string | null = null;
 
   private readonly LIQUIDITY_THRESHOLD = ethers.parseEther(SECURITY_VALIDATOR_CONFIG.MIN_ETH_LIQUIDITY);
-  private readonly RUGPULL_LIQUIDITY_THRESHOLD = (this.LIQUIDITY_THRESHOLD * 50n) / 100n;
+  private readonly RUGPULL_LIQUIDITY_THRESHOLD = (this.LIQUIDITY_THRESHOLD * 20n) / 100n;
 
   constructor(
     private readonly provider: Provider,
@@ -80,6 +81,7 @@ export class LiquidityCheckingService {
     }
 
     if (mostLiquidDex) {
+      console.log(`Most liquid dex: ${mostLiquidDex} (${ethers.formatEther(maxLiquidityETH)} ETH)`);
       activeToken.hasLiquidity = true;
       activeToken.protocol = mostLiquidDex;
     }
@@ -97,13 +99,11 @@ export class LiquidityCheckingService {
     if (isActiveToken) {
       const activeToken = token as ActiveToken;
 
-      // If token doesn't have liquidity, can't be a rugpull
       if (!activeToken.hasLiquidity || !activeToken.protocol) {
         console.log(`Token ${activeToken.address} has no liquidity, skipping rugpull check`);
-        return { rugpullRisk: false };
+        return { isRugpull: false };
       }
 
-      // Get liquidity based on the protocol
       let liquidityETH: bigint = 0n;
 
       switch (activeToken.protocol) {
@@ -130,18 +130,18 @@ export class LiquidityCheckingService {
 
         default:
           console.warn(`Unknown protocol: ${activeToken.protocol}`);
-          return { rugpullRisk: false };
+          return { isRugpull: false };
       }
 
-      const hasRugpullRisk = liquidityETH < this.RUGPULL_LIQUIDITY_THRESHOLD;
+      const isRugpull = liquidityETH < this.RUGPULL_LIQUIDITY_THRESHOLD;
 
       console.log(`Token ${activeToken.address} rugpull check:
       - Liquidity: ${ethers.formatEther(liquidityETH)} ETH
       - Threshold: ${ethers.formatEther(this.RUGPULL_LIQUIDITY_THRESHOLD)} ETH
-      - Rugpull risk: ${hasRugpullRisk}`);
+      - Rugpull: ${isRugpull ? "Yes" : "No"}`);
 
       return {
-        rugpullRisk: hasRugpullRisk,
+        isRugpull: isRugpull,
         liquidityETH: liquidityETH.toString(),
         threshold: this.RUGPULL_LIQUIDITY_THRESHOLD.toString(),
       };

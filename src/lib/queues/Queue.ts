@@ -26,7 +26,6 @@ export class Queue<T> extends EventEmitter {
     };
 
     this.items.push(queueItem);
-    console.log(`[Queue:${this.name}] Item enqueued, queue size: ${this.items.length}`);
     this.emit("enqueued", queueItem);
 
     if (!this.processing) {
@@ -39,11 +38,7 @@ export class Queue<T> extends EventEmitter {
   }
 
   dequeue(): QueueItem<T> | undefined {
-    const item = this.items.shift();
-    if (item) {
-      console.log(`[Queue:${this.name}] Item dequeued, queue size: ${this.items.length}`);
-    }
-    return item;
+    return this.items.shift();
   }
 
   size(): number {

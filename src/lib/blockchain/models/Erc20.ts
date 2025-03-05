@@ -1,6 +1,6 @@
 import { ethers, Contract } from "ethers";
 import { TransactionRequest } from "ethers";
-import { Erc20Error } from "../../../lib/errors/Erc20Error";
+import { Erc20Error } from "../../errors/Erc20Error";
 
 export class ERC20 {
   private readonly GWEI_DECIMALS = 9;

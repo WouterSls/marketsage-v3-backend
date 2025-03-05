@@ -2,10 +2,12 @@ import { Provider, Wallet } from "ethers";
 import { TokenSecurityValidator } from "./token-security-validator";
 import { TokenMonitorManager } from "./token-monitor";
 import { TokenDiscoveryManager } from "./token-discovery/TokenDiscoveryManager";
-import { getChainConfig } from "./lib/blockchain/models/chain-config";
-import { TokenMonitoringQueueService } from "./token-monitor/queue/TokenMonitoringQueueService";
-import { TokenValidationQueueService } from "./token-security-validator/queue/TokenValidationQueueService";
+import { getChainConfig } from "./lib/blockchain/config/chain-config";
 import { TokenValidationQueueReceiver } from "./token-security-validator/queue/TokenValidationQueueReceiver";
+import { TokenMonitoringQueueReceiver } from "./token-monitor/queue/TokenMonitoringQueueReceiver";
+import { QueueManager } from "./lib/queues/QueueManager";
+import { TokenMonitoringItem, TokenValidationItem } from "./lib/queues/QueueTypes";
+import { QueueNames } from "./lib/queues/QueueTypes";
 
 export class Services {
   private static instance: Services;
@@ -14,8 +16,9 @@ export class Services {
   private baseScanApiKey: string;
   private isInitialized = false;
 
+  private queueManager: QueueManager | null = null;
   private tokenValidationQueueReceiver: TokenValidationQueueReceiver | null = null;
-  private tokenMonitoringQueueService: TokenMonitoringQueueService | null = null;
+  private tokenMonitoringQueueReceiver: TokenMonitoringQueueReceiver | null = null;
 
   private tokenDiscoveryManager: TokenDiscoveryManager | null = null;
   private tokenSecurityValidator: TokenSecurityValidator | null = null;
@@ -46,6 +49,11 @@ export class Services {
       const chainId = await this.provider.getNetwork().then((network) => network.chainId);
       const chainConfig = getChainConfig(chainId);
 
+      this.queueManager = QueueManager.getInstance();
+
+      this.queueManager.getOrCreateQueue<TokenValidationItem>(QueueNames.TOKEN_VALIDATION);
+      this.queueManager.getOrCreateQueue<TokenMonitoringItem>(QueueNames.TOKEN_MONITORING);
+
       this.tokenDiscoveryManager = TokenDiscoveryManager.getInstance();
       await this.tokenDiscoveryManager.initialize({
         provider: this.provider,
@@ -58,10 +66,14 @@ export class Services {
         wallet: this.wallet,
         chainConfig: chainConfig,
       });
-      this.tokenValidationQueueReceiver = TokenValidationQueueReceiver.getInstance(this.tokenSecurityValidator);
 
       this.tokenMonitorManager = TokenMonitorManager.getInstance(this.provider);
-      this.tokenMonitoringQueueService = new TokenMonitoringQueueService();
+      await this.tokenMonitorManager.initialize({
+        provider: this.provider,
+      });
+
+      this.tokenValidationQueueReceiver = TokenValidationQueueReceiver.getInstance(this.tokenSecurityValidator);
+      this.tokenMonitoringQueueReceiver = TokenMonitoringQueueReceiver.getInstance(this.tokenMonitorManager);
 
       this.isInitialized = true;
       console.log("All background services initialized successfully");
@@ -74,9 +86,11 @@ export class Services {
   async shutdown(): Promise<void> {
     console.log("Shutting down background services...");
 
-    if (this.tokenMonitorManager) {
-      this.tokenMonitorManager.stop();
+    if (this.tokenDiscoveryManager) {
+      this.tokenDiscoveryManager.stop();
     }
+
+    // Kill websocket connections
 
     console.log("All background services shut down");
   }
