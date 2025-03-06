@@ -67,7 +67,7 @@ export class Services {
         chainConfig: chainConfig,
       });
 
-      this.tokenMonitorManager = TokenMonitorManager.getInstance(this.provider);
+      this.tokenMonitorManager = TokenMonitorManager.getInstance();
       await this.tokenMonitorManager.initialize({
         provider: this.provider,
       });

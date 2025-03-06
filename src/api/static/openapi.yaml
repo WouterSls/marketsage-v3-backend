@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   title: Market Sage API
   version: 1.0.0
-  description: MarketSage API for discovery, secrity validation, and monitoring
+  description: MarketSage API for discovery, security validation, and monitoring
 
 servers:
   - url: /api/v1
@@ -19,6 +19,7 @@ tags:
     description: System operations and health checks
 
 paths:
+  # Token Discovery Manager
   /token-discovery/status:
     get:
       summary: Token discovery service status
@@ -31,7 +32,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ServiceStatus"
+                type: object
+                properties:
+                  running:
+                    type: boolean
+                    description: Whether the token discovery service is running
+                  statistics:
+                    $ref: "#/components/schemas/DiscoveryStatistics"
   /token-discovery/start:
     post:
       summary: Start token discovery service
@@ -44,7 +51,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ServiceStatus"
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
   /token-discovery/stop:
     post:
       summary: Stop token discovery service
@@ -57,8 +69,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ServiceStatus"
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
 
+  # Token Security Validator
   /token-security-validator/status:
     get:
       summary: Token security validator status
@@ -71,55 +89,76 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TokenSecurityValidatorStatus"
-  /token-security-validator/token:
-    post:
-      summary: Add new token to security validator
-      description: Adds a new token to the security validator
+                type: object
+                properties:
+                  status:
+                    type: string
+                  statistics:
+                    $ref: "#/components/schemas/ValidationStatistics"
+  /token-security-validator/token-liquidity:
+    get:
+      summary: Check token liquidity
+      description: Checks if a token has liquidity
       tags:
         - Token Security Validation
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TokenValidationItem"
-      responses:
-        "200":
-          description: Adds token to security validator and starts validation
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ActiveToken"
-  /token-security-validator/liquidity-check:
-    post:
-      summary: Check liquidity of a token
-      description: Checks the liquidity of a token
-      tags:
-        - Token Security Validation
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TokenValidationItem"
+      parameters:
+        - in: query
+          name: tokenAddress
+          required: true
+          schema:
+            type: string
+          description: The token contract address
+          example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
       responses:
         "200":
           description: Liquidity check result
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LiquidityCheckResult"
-
-  /health:
-    get:
-      summary: Health check endpoint
-      description: Returns the health status of the API
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Liquidity check result"
+                  liquidity:
+                    $ref: "#/components/schemas/LiquidityDto"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Token address is required"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Error checking liquidity"
+                  error:
+                    type: string
+  /token-security-validator/token:
+    post:
+      summary: Add token for validation
+      description: Adds a new token to be validated
       tags:
-        - System
+        - Token Security Validation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenValidationItem"
       responses:
         "200":
-          description: Service is healthy
+          description: Token added successfully
           content:
             application/json:
               schema:
@@ -127,79 +166,212 @@ paths:
                 properties:
                   status:
                     type: string
-                    example: "ok"
-                  version:
-                    type: string
-                    example: "1.0.0"
-  /queues/stats:
-    get:
-      summary: Get queue statistics
-      description: Returns the statistics of all queues
-      tags:
-        - System
-      responses:
-        "200":
-          description: Queue statistics
+                  activeToken:
+                    $ref: "#/components/schemas/ActiveToken"
+        "500":
+          description: Error adding token
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueueStatistics"
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+  # Token Monitor Manager
+  /token-monitor/status:
+    get:
+      summary: Token monitor status
+      description: Returns the current status of the token monitor service
+      tags:
+        - Token Monitoring
+      responses:
+        "200":
+          description: Token monitor status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  statistics:
+                    $ref: "#/components/schemas/MonitoringStatistics"
+
+  /token-monitor/positions:
+    get:
+      summary: Get all positions
+      description: Returns all positions being monitored
+      tags:
+        - Token Monitoring
+      responses:
+        "200":
+          description: All positions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  positions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PositionDto"
+
+  /token-monitor/active-positions:
+    get:
+      summary: Get active positions
+      description: Returns only active positions being monitored
+      tags:
+        - Token Monitoring
+      responses:
+        "200":
+          description: Active positions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  positions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PositionDto"
 
 components:
   schemas:
-    Error:
-      type: object
-      properties:
-        code:
-          type: string
-        message:
-          type: string
-
     ServiceStatus:
       type: object
       properties:
         status:
           type: string
-          enum: [running, stopped, error]
-          example: "running"
-        uptime:
+        running:
+          type: boolean
+          description: Whether the service is running
+        message:
+          type: string
+
+    DiscoveryStatistics:
+      type: object
+      properties:
+        tokensDiscovered:
           type: number
-          description: Uptime in seconds
-          example: 3600
+          description: Number of tokens discovered
+        lastDiscovery:
+          type: string
+          format: date-time
+          description: Timestamp of the last discovery
 
-    QueueStatistics:
+    ValidationStatistics:
       type: object
       properties:
-        queues:
-          type: object
-          additionalProperties:
-            type: object
-            properties:
-              pending:
-                type: number
-              processed:
-                type: number
-              failed:
-                type: number
+        tokensValidated:
+          type: number
+          description: Number of tokens validated
+        tokensRejected:
+          type: number
+          description: Number of tokens rejected
+        activeTokens:
+          type: number
+          description: Number of active tokens
 
-    TokenSecurityValidatorStatus:
+    MonitoringStatistics:
       type: object
       properties:
-        statistics:
+        activePositions:
+          type: number
+          description: Number of active positions
+        closedPositions:
+          type: number
+          description: Number of closed positions
+        profitablePositions:
+          type: number
+          description: Number of profitable positions
+        unprofitablePositions:
+          type: number
+          description: Number of unprofitable positions
+
+    PositionDto:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Position ID
+        tokenAddress:
+          type: string
+          description: Token contract address
+        entryPrice:
+          type: string
+          description: Entry price
+        currentPrice:
+          type: string
+          description: Current price
+        profit:
+          type: number
+          description: Current profit/loss percentage
+        entryTime:
+          type: string
+          format: date-time
+          description: Entry timestamp
+        exitTime:
+          type: string
+          format: date-time
+          description: Exit timestamp (null if position is active)
+        active:
+          type: boolean
+          description: Whether the position is active
+
+    LiquidityDto:
+      type: object
+      properties:
+        v2Liquidity:
           type: object
           properties:
-            activeTokenCount:
+            exists:
+              type: boolean
+              description: Whether the token has liquidity on Uniswap V2
+            liquidityEth:
+              type: string
+              description: Liquidity in ETH
+            pairAddress:
+              type: string
+              description: Pair address
+        v3Liquidity:
+          type: object
+          properties:
+            exists:
+              type: boolean
+              description: Whether the token has liquidity on Uniswap V3
+            liquidityEth:
+              type: string
+              description: Liquidity in ETH
+            poolAddress:
+              type: string
+              description: Pool address
+            feeTier:
               type: number
-              description: Number of active tokens being validated
-            honeypotCount:
-              type: number
-              description: Number of honeypot tokens detected
-            rugpullCount:
-              type: number
-              description: Number of rugpull tokens detected
-            tokensCreated:
-              type: number
-              description: Number of tokens created
+              description: Fee tier
+        v4Liquidity:
+          type: object
+          properties:
+            exists:
+              type: boolean
+              description: Whether the token has liquidity on Uniswap V4
+            liquidityEth:
+              type: string
+              description: Liquidity in ETH
+        aerodromeLiquidity:
+          type: object
+          properties:
+            exists:
+              type: boolean
+              description: Whether the token has liquidity on Aerodrome
+            liquidityEth:
+              type: string
+              description: Liquidity in ETH
 
     TokenValidationItem:
       type: object
@@ -269,3 +441,5 @@ components:
           example: "uniV2"
         liquidityETH:
           type: string
+          description: Liquidity in ETH
+          example: "10.5"

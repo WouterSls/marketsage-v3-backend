@@ -1,4 +1,5 @@
 export const MONITOR_CONFIG = {
-  MONITOR_INTERVAL: 5 * 60 * 1000,
+  //MONITOR_INTERVAL: 5 * 60 * 1000, // 5 minutes
+  MONITOR_INTERVAL: 10 * 1000, // 10 seconds
   MONITOR_BATCH_SIZE: 10,
 };

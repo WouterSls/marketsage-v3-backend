@@ -1,7 +1,7 @@
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../lib/db/schema";
 
-import { TokenRepository, SelectToken, InsertToken } from "../repository/TokenRepository";
+import { TokenRepository, SelectToken, InsertToken } from "./TokenRepository";
 import { TokenStatus } from "../../lib/db/schema";
 
 import { TechnicalError } from "../../lib/errors/TechnicalError";

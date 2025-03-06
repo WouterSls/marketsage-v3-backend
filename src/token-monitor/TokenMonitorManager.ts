@@ -2,79 +2,118 @@ import { Provider } from "ethers";
 import { TokenMonitoringQueueService } from "./queue/TokenMonitoringQueueService";
 
 import { TokenMonitorManagerError } from "../lib/errors/TokenMonitorMangerError";
+import { SelectPosition } from "../db/position/PositionRepository";
+import { PositionService } from "../db/position/PositionService";
+import { SelectToken } from "../db/token/TokenRepository";
+import { TokenService } from "../db/token/TokenService";
+import { SelectTrade } from "../db/trade/TradeRepository";
+import { TradeService } from "../db/trade/TradeService";
+import { MONITOR_CONFIG } from "./config/monitor-config";
 
 export class TokenMonitorManager {
   private static instance: TokenMonitorManager;
-  private isInitialized = false;
 
   private statistics = {
     tokensMonitored: 0,
     tokensSold: 0,
   };
 
-  private provider: Provider;
-  private monitorInterval: NodeJS.Timeout | null = null;
+  private provider: Provider | null = null;
+
+  private positionService: PositionService | null = null;
+  private tokenService: TokenService | null = null;
+  private tradeService: TradeService | null = null;
 
   private tokenMonitoringQueueService: TokenMonitoringQueueService | null = null;
 
-  private constructor(provider: Provider) {
-    this.provider = provider;
+  private constructor() {}
 
-    console.log("Token Monitor Manager initialized");
-  }
-
-  static getInstance(provider: Provider): TokenMonitorManager {
+  static getInstance(): TokenMonitorManager {
     if (!TokenMonitorManager.instance) {
-      TokenMonitorManager.instance = new TokenMonitorManager(provider);
+      TokenMonitorManager.instance = new TokenMonitorManager();
     }
     return TokenMonitorManager.instance;
   }
 
-  initialize(config: { provider: Provider }): void {
+  async initialize(config: { provider: Provider }): Promise<void> {
     this.provider = config.provider;
+
+    this.positionService = new PositionService();
+    this.tokenService = new TokenService();
+    this.tradeService = new TradeService();
+
+    this.tokenMonitoringQueueService = new TokenMonitoringQueueService();
+
+    this.setupTokenMonitor();
+
+    console.log("Token Monitor Manager initialized");
+  }
+
+  getStatus(): { statistics: any } {
+    return {
+      statistics: this.statistics,
+    };
+  }
+
+  async getAllPositions(): Promise<SelectPosition[]> {
+    if (!this.positionService) {
+      throw new TokenMonitorManagerError("Position service not initialized");
+    }
+    return this.positionService.getAllPositions();
+  }
+  async getActivePositions(): Promise<SelectPosition[]> {
+    if (!this.positionService) {
+      throw new TokenMonitorManagerError("Position service not initialized");
+    }
+    return this.positionService.getActivePositions();
+  }
+  async getAllTokens(): Promise<SelectToken[]> {
+    if (!this.tokenService) {
+      throw new TokenMonitorManagerError("Token service not initialized");
+    }
+    return this.tokenService.getAllTokens();
+  }
+  async getAllTrades(): Promise<SelectTrade[]> {
+    if (!this.tradeService) {
+      throw new TokenMonitorManagerError("Trade service not initialized");
+    }
+    return this.tradeService.getAllTrades();
   }
 
   async monitorToken(tokenAddress: string): Promise<void> {
+    console.log("Monitoring token", tokenAddress);
     // TODO: Implement actual monitoring logic
     // update liquidity
     // update price
     // sell if needed
   }
 
-  /**
-   * Get the monitor status
-   */
-  public getStatus(): { statistics: any } {
-    return {
-      statistics: this.statistics,
-    };
+  private async setupTokenMonitor(): Promise<void> {
+    setInterval(() => {
+      this.identifyTokensForMonitoring();
+    }, MONITOR_CONFIG.MONITOR_INTERVAL);
   }
-
   private async identifyTokensForMonitoring(): Promise<void> {
-    if (!this.tokenMonitoringQueueService) {
-      throw new TokenMonitorManagerError("Token monitoring queue service not initialized");
+    if (!this.tokenMonitoringQueueService || !this.tokenService) {
+      throw new TokenMonitorManagerError("Token monitoring queue service or token service not initialized");
     }
 
     try {
-      // TODO: Query the database for tokens that need monitoring
-      // This would typically check based on:
-      // 1. Last monitored time
-      // 2. Monitor frequency/interval
-      // 3. Token status/priority
+      const tokens = await this.tokenService.getTokensByStatus("buyable");
 
-      // Example simulated DB query result
-      const tokensToMonitor: string[] = [];
+      if (tokens.length === 0) {
+        console.log("No tokens to monitor");
+        return;
+      }
 
-      //console.log(`Found ${tokensToMonitor.length} tokens to monitor`);
+      console.log(`Identified ${tokens.length} tokens to monitor`);
 
-      // Enqueue each token for monitoring
-      for (const token of tokensToMonitor) {
-        this.tokenMonitoringQueueService.enqueueToken(token);
+      for (const token of tokens) {
+        await this.tokenMonitoringQueueService.enqueueToken(token.address);
       }
     } catch (error) {
       console.error("Error querying tokens for monitoring", error);
       throw error;
     }
   }
-  private async identifyEarlyExitTokens(): Promise<void> {}
 }

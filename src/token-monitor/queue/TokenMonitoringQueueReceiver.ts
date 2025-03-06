@@ -45,7 +45,7 @@ export class TokenMonitoringQueueReceiver {
 
   private setupQueueListeners(): void {
     this.queue.on("enqueued", () => {
-      console.log(`Queue Receiver: new token enqueued for processing on queue ${QueueNames.TOKEN_VALIDATION}`);
+      console.log(`Queue Receiver: new token enqueued for processing on queue ${QueueNames.TOKEN_MONITORING}`);
       if (this.isRunning && !this.isProcessingQueue) {
         this.processBatchTokens();
       }
@@ -85,7 +85,7 @@ export class TokenMonitoringQueueReceiver {
     this.queue.setProcessing(true);
 
     try {
-      const queueItems: QueueItem<TokenValidationItem>[] = [];
+      const queueItems: QueueItem<TokenMonitoringItem>[] = [];
       const actualBatchSize = Math.min(batchSize, this.queue.size());
 
       for (let i = 0; i < actualBatchSize; i++) {
@@ -128,7 +128,7 @@ export class TokenMonitoringQueueReceiver {
     }
   }
 
-  private async processTokenItem(queueItem: QueueItem<TokenValidationItem>): Promise<void> {
+  private async processTokenItem(queueItem: QueueItem<TokenMonitoringItem>): Promise<void> {
     const { data: token } = queueItem;
 
     try {

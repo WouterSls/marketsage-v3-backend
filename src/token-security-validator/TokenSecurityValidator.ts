@@ -1,9 +1,10 @@
-import { TokenValidationItem } from "../lib/queues/QueueTypes";
 import { TokenMonitoringQueueService } from "../token-monitor/queue/TokenMonitoringQueueService";
+
 import { sleep } from "../lib/utils/helper-functions";
 import { TokenSecurityValidatorError } from "../lib/errors/TokenSecurityValidatorError";
+
+import { TokenService } from "../db/token/TokenService";
 import { ActiveToken } from "./models/token-security-validator.types";
-import { TokenService } from "../db/service/TokenService";
 import { createMinimalErc20 } from "../lib/blockchain/utils/blockchain-utils";
 import { Provider, Wallet } from "ethers";
 import { LiquidityCheckingService } from "./services/LiquidityCheckingService";
@@ -14,7 +15,6 @@ import { HoneypotCheckingService } from "./services/HoneypotCheckingService";
 
 export class TokenSecurityValidator {
   private static instance: TokenSecurityValidator;
-  private isInitialized = false;
 
   private activeTokens: Map<string, ActiveToken> = new Map();
   private statistics = {
@@ -42,10 +42,6 @@ export class TokenSecurityValidator {
   }
 
   async initialize(config: { provider: Provider; wallet: Wallet; chainConfig: ChainConfig }): Promise<void> {
-    if (this.isInitialized) {
-      return;
-    }
-
     this.provider = config.provider;
 
     this.tokenValidationQueueService = new TokenValidationQueueService();
@@ -58,8 +54,6 @@ export class TokenSecurityValidator {
     this.setupTokenValidator();
 
     console.log("Token Security Validator initialized");
-
-    this.isInitialized = true;
   }
 
   getStatus(): { statistics: any } {
@@ -164,7 +158,6 @@ export class TokenSecurityValidator {
         this.statistics.rugpullCount++;
         return;
       }
-      console.log("No instant rugpull detected");
 
       console.log(`\nStarting Honeypot Detection for ${activeToken.erc20.getName()}...`);
       console.log("--------------------------------");

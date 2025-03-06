@@ -13,9 +13,3 @@ export interface ActiveToken {
 }
 
 export type DEX = "uniV2" | "uniV3" | "uniV4" | "aerodrome" | "balancer" | null;
-
-export interface LiquidityInfo {
-  hasLiquidity: boolean;
-  protocol: DEX;
-  liquidityETH: string;
-}

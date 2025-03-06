@@ -6,6 +6,7 @@ import app from "./app";
 
 import { ethers } from "ethers";
 import { Services } from "./services";
+import { runMigrations } from "./lib/db/migration";
 
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
@@ -16,11 +17,13 @@ const PRIVATE_KEY = process.env.MS_KEY || "";
 
 async function startServer() {
   try {
-    // Initialize provider | wallet
+    // Run migrations
+    await runMigrations();
+
+    // Initialize services
     const provider = new ethers.JsonRpcProvider(BASE_RPC_URL);
     const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
-    // Initialize services
     const services = Services.getInstance(provider, wallet, BASESCAN_API_KEY);
     await services.initialize();
 
