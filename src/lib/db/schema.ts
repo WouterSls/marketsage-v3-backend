@@ -8,7 +8,7 @@ export type TokenStatus =
   | "rugpull"
   | "honeypot"
   | "archived";
-export type DexType = "uniswapv2" | "uniswapv3" | "uniswapv4" | "aerodrome" | null;
+export type DexType = "uniswapv2" | "uniswapv3" | "uniswapv4" | "aerodrome" | "balancer" | null;
 export type TradeType = "buy" | "sell" | "stoploss";
 export type BuyType = "usdValue" | "doubleExit" | "earlyExit" | null;
 
@@ -28,7 +28,7 @@ export const token = sqliteTable("token", {
     ],
   }).notNull(),
   buyType: text("buy_type", { enum: ["usdValue", "doubleExit", "earlyExit"] }),
-  dex: text("dex", { enum: ["uniswapv2", "uniswapv3", "uniswapv4", "aerodrome"] }),
+  dex: text("dex", { enum: ["uniswapv2", "uniswapv3", "uniswapv4", "aerodrome", "balancer"] }),
   isSuspicious: integer("is_suspicious", { mode: "boolean" }).notNull().default(false),
   retryCounter: integer("retry_counter").notNull().default(0),
   discoveredAt: integer("discovered_at")
