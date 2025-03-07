@@ -1,4 +1,5 @@
 import { ERC20 } from "../../lib/blockchain/models/Erc20";
+import { DexType } from "../../lib/db/schema";
 
 export interface ActiveToken {
   address: string;
@@ -12,4 +13,4 @@ export interface ActiveToken {
   isBeingProcessed: boolean;
 }
 
-export type DEX = "uniV2" | "uniV3" | "uniV4" | "aerodrome" | "balancer" | null;
+export type DEX = DexType;

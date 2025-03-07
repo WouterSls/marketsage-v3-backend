@@ -46,7 +46,7 @@ export class LiquidityCheckingService {
 
       if (liquidityETH > maxLiquidityETH && liquidityETH >= this.LIQUIDITY_THRESHOLD) {
         maxLiquidityETH = liquidityETH;
-        mostLiquidDex = "uniV2";
+        mostLiquidDex = "uniswapv2";
       }
     }
 
@@ -57,7 +57,7 @@ export class LiquidityCheckingService {
 
       if (v3LiquidityETH > maxLiquidityETH && v3LiquidityETH >= this.LIQUIDITY_THRESHOLD) {
         maxLiquidityETH = v3LiquidityETH;
-        mostLiquidDex = "uniV3";
+        mostLiquidDex = "uniswapv3";
       }
     }
 
@@ -67,7 +67,7 @@ export class LiquidityCheckingService {
 
       if (v4LiquidityETH > maxLiquidityETH && v4LiquidityETH >= this.LIQUIDITY_THRESHOLD) {
         maxLiquidityETH = v4LiquidityETH;
-        mostLiquidDex = "uniV4";
+        mostLiquidDex = "uniswapv4";
       }
     }
 
@@ -99,65 +99,106 @@ export class LiquidityCheckingService {
 
     if (isActiveToken) {
       const activeToken = token as ActiveToken;
+      return await this.activeTokenRugpullCheck(activeToken);
+    } else {
+      const selectToken = token as SelectToken;
+      return await this.selectTokenRugpullCheck(selectToken);
+    }
+  }
+  private async activeTokenRugpullCheck(activeToken: ActiveToken) {
+    if (!activeToken.hasLiquidity || !activeToken.protocol) {
+      console.log(`Token ${activeToken.address} has no liquidity, skipping rugpull check`);
+      return { isRugpull: false };
+    }
 
-      if (!activeToken.hasLiquidity || !activeToken.protocol) {
-        console.log(`Token ${activeToken.address} has no liquidity, skipping rugpull check`);
+    let liquidityETH: bigint = 0n;
+
+    switch (activeToken.protocol) {
+      case "uniswapv2":
+        const v2Liquidity = await this.checkV2Liquidity(activeToken.address);
+        liquidityETH = v2Liquidity.exists && v2Liquidity.liquidityEth ? BigInt(v2Liquidity.liquidityEth) : 0n;
+        break;
+
+      case "uniswapv3":
+        const v3Liquidity = await this.checkV3Liquidity(activeToken.address);
+        liquidityETH = v3Liquidity.exists && v3Liquidity.liquidityEth ? BigInt(v3Liquidity.liquidityEth) : 0n;
+        break;
+
+      case "uniswapv4":
+        const v4Liquidity = await this.checkV4Liquidity(activeToken.address);
+        liquidityETH = v4Liquidity.exists && v4Liquidity.liquidityEth ? BigInt(v4Liquidity.liquidityEth) : 0n;
+        break;
+
+      case "aerodrome":
+        const aerodromeLiquidity = await this.checkAerodromeLiquidity(activeToken.address);
+        liquidityETH =
+          aerodromeLiquidity.exists && aerodromeLiquidity.liquidityEth ? BigInt(aerodromeLiquidity.liquidityEth) : 0n;
+        break;
+
+      default:
+        console.warn(`Unknown protocol: ${activeToken.protocol}`);
         return { isRugpull: false };
-      }
+    }
 
-      let liquidityETH: bigint = 0n;
+    const isRugpull = liquidityETH < this.RUGPULL_LIQUIDITY_THRESHOLD;
 
-      switch (activeToken.protocol) {
-        case "uniV2":
-          const v2Liquidity = await this.checkV2Liquidity(activeToken.address);
-          liquidityETH = v2Liquidity.exists && v2Liquidity.liquidityEth ? BigInt(v2Liquidity.liquidityEth) : 0n;
-          break;
-
-        case "uniV3":
-          const v3Liquidity = await this.checkV3Liquidity(activeToken.address);
-          liquidityETH = v3Liquidity.exists && v3Liquidity.liquidityEth ? BigInt(v3Liquidity.liquidityEth) : 0n;
-          break;
-
-        case "uniV4":
-          const v4Liquidity = await this.checkV4Liquidity(activeToken.address);
-          liquidityETH = v4Liquidity.exists && v4Liquidity.liquidityEth ? BigInt(v4Liquidity.liquidityEth) : 0n;
-          break;
-
-        case "aerodrome":
-          const aerodromeLiquidity = await this.checkAerodromeLiquidity(activeToken.address);
-          liquidityETH =
-            aerodromeLiquidity.exists && aerodromeLiquidity.liquidityEth ? BigInt(aerodromeLiquidity.liquidityEth) : 0n;
-          break;
-
-        default:
-          console.warn(`Unknown protocol: ${activeToken.protocol}`);
-          return { isRugpull: false };
-      }
-
-      const isRugpull = liquidityETH < this.RUGPULL_LIQUIDITY_THRESHOLD;
-
-      console.log(`Token ${activeToken.address} rugpull check:
+    console.log(`Token ${activeToken.address} rugpull check:
       - Liquidity: ${ethers.formatEther(liquidityETH)} ETH
       - Threshold: ${ethers.formatEther(this.RUGPULL_LIQUIDITY_THRESHOLD)} ETH
       - Rugpull: ${isRugpull ? "Yes" : "No"}`);
 
-      return {
-        isRugpull: isRugpull,
-        liquidityETH: liquidityETH.toString(),
-        threshold: this.RUGPULL_LIQUIDITY_THRESHOLD.toString(),
-      };
-    } else {
-      // Placeholder for SelectToken
-      console.log(`Performing SelectToken rugpull check for ${(token as SelectToken).address}`);
-
-      // TODO: Implement SelectToken rugpull check
-      // For example, you could check the token's history, trading volume, etc.
-
-      return {
-        rugpullRisk: false,
-        message: "SelectToken rugpull check not fully implemented",
-      };
+    return {
+      isRugpull: isRugpull,
+      liquidityETH: liquidityETH.toString(),
+      threshold: this.RUGPULL_LIQUIDITY_THRESHOLD.toString(),
+    };
+  }
+  private async selectTokenRugpullCheck(selectToken: SelectToken) {
+    if (!selectToken.dex) {
+      throw new TechnicalError("Validated token has no dex");
     }
+
+    let liquidityETH: bigint = 0n;
+
+    switch (selectToken.dex) {
+      case "uniswapv2":
+        const v2Liquidity = await this.checkV2Liquidity(selectToken.address);
+        liquidityETH = v2Liquidity.exists && v2Liquidity.liquidityEth ? BigInt(v2Liquidity.liquidityEth) : 0n;
+        break;
+
+      case "uniswapv3":
+        const v3Liquidity = await this.checkV3Liquidity(selectToken.address);
+        liquidityETH = v3Liquidity.exists && v3Liquidity.liquidityEth ? BigInt(v3Liquidity.liquidityEth) : 0n;
+        break;
+
+      case "uniswapv4":
+        const v4Liquidity = await this.checkV4Liquidity(selectToken.address);
+        liquidityETH = v4Liquidity.exists && v4Liquidity.liquidityEth ? BigInt(v4Liquidity.liquidityEth) : 0n;
+        break;
+
+      case "aerodrome":
+        const aerodromeLiquidity = await this.checkAerodromeLiquidity(selectToken.address);
+        liquidityETH =
+          aerodromeLiquidity.exists && aerodromeLiquidity.liquidityEth ? BigInt(aerodromeLiquidity.liquidityEth) : 0n;
+        break;
+
+      default:
+        console.warn(`Unknown protocol: ${selectToken.dex}`);
+        return { isRugpull: false };
+    }
+
+    const isRugpull = liquidityETH < this.RUGPULL_LIQUIDITY_THRESHOLD;
+
+    console.log(`Token ${selectToken.address} rugpull check:
+      - Liquidity: ${ethers.formatEther(liquidityETH)} ETH
+      - Threshold: ${ethers.formatEther(this.RUGPULL_LIQUIDITY_THRESHOLD)} ETH
+      - Rugpull: ${isRugpull ? "Yes" : "No"}`);
+
+    return {
+      isRugpull: isRugpull,
+      liquidityETH: liquidityETH.toString(),
+      threshold: this.RUGPULL_LIQUIDITY_THRESHOLD.toString(),
+    };
   }
 
   async getLiquidity(tokenAddress: string): Promise<AllProtocolsLiquidity> {
@@ -254,6 +295,16 @@ export class LiquidityCheckingService {
           console.error(`${tokenAddress} - ${errorMessage}`);
           continue;
         }
+      }
+
+      if (bestPool.exists && BigInt(bestPool.liquidityEth) <= this.RUGPULL_LIQUIDITY_THRESHOLD) {
+        return {
+          exists: false,
+          liquidityEth: bestPool.liquidityEth,
+          tick: bestPool.tick.toString(),
+          poolAddress: bestPool.poolAddress,
+          feeTier: bestPool.feeTier,
+        };
       }
 
       return {

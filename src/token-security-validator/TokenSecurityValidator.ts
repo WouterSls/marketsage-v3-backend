@@ -175,8 +175,9 @@ export class TokenSecurityValidator {
       const creatorAddress = activeToken.creatorAddress;
       const discoveredAt = activeToken.addedAt;
       const status = "buyable";
+      const dex = activeToken.protocol;
 
-      this.tokenService.createToken(tokenAddress, tokenName, creatorAddress, discoveredAt, status);
+      this.tokenService.createToken(tokenAddress, tokenName, creatorAddress, discoveredAt, status, dex);
       this.statistics.tokensCreated++;
       this.activeTokens.delete(tokenAddress);
 

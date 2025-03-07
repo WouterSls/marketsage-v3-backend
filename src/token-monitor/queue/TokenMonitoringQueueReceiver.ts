@@ -45,7 +45,6 @@ export class TokenMonitoringQueueReceiver {
 
   private setupQueueListeners(): void {
     this.queue.on("enqueued", () => {
-      console.log(`Queue Receiver: new token enqueued for processing on queue ${QueueNames.TOKEN_MONITORING}`);
       if (this.isRunning && !this.isProcessingQueue) {
         this.processBatchTokens();
       }

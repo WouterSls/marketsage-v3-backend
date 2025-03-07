@@ -70,6 +70,7 @@ export class Services {
       this.tokenMonitorManager = TokenMonitorManager.getInstance();
       await this.tokenMonitorManager.initialize({
         provider: this.provider,
+        chainConfig: chainConfig,
       });
 
       this.tokenValidationQueueReceiver = TokenValidationQueueReceiver.getInstance(this.tokenSecurityValidator);

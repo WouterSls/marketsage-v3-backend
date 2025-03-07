@@ -48,13 +48,13 @@ export class HoneypotCheckingService {
 
   private async testBuying(token: ActiveToken) {
     switch (token.protocol) {
-      case "uniV2":
+      case "uniswapv2":
         await this.testBuyV2(token);
         break;
-      case "uniV3":
+      case "uniswapv3":
         await this.testBuyV3(token);
         break;
-      case "uniV4":
+      case "uniswapv4":
         await this.testBuyV4(token);
         break;
       case "aerodrome":
@@ -63,18 +63,36 @@ export class HoneypotCheckingService {
     }
   }
   private async testBuyV2(token: ActiveToken) {
-    try {
-      console.log("Starting V2 test buy...");
-      const erc20 = token.erc20;
-      const buyAmount = SECURITY_VALIDATOR_CONFIG.USD_TEST_AMOUNT;
-      const tradeSuccessInfo = await this.uniswapV2Router.swapEthInUsdForToken(erc20, buyAmount);
-      token.hasBalance = true;
-      console.log(`V2 test buy successful | tx: ${tradeSuccessInfo.transactionHash}`);
-    } catch (error) {
-      console.log("V2 test buy failed");
-      console.log(error);
-      throw new HoneypotError("V2 test buy failed");
+    const maxRetries = 2;
+    let attempts = 0;
+    let lastError: any;
+
+    while (attempts <= maxRetries) {
+      try {
+        console.log(`Starting V2 test buy... (Attempt ${attempts + 1}/${maxRetries + 1})`);
+        const erc20 = token.erc20;
+        const buyAmount = SECURITY_VALIDATOR_CONFIG.USD_TEST_AMOUNT;
+        const tradeSuccessInfo = await this.uniswapV2Router.swapEthInUsdForToken(erc20, buyAmount);
+        token.hasBalance = true;
+        console.log(`V2 test buy successful | tx: ${tradeSuccessInfo.transactionHash}`);
+        return;
+      } catch (error) {
+        lastError = error;
+        console.log(`V2 test buy failed (Attempt ${attempts + 1}/${maxRetries + 1})`);
+        console.log(error);
+
+        if (attempts < maxRetries) {
+          const delaySeconds = 3;
+          console.log(`Retrying in ${delaySeconds} seconds...`);
+          await sleep(delaySeconds);
+        }
+      }
+      attempts++;
     }
+
+    throw new HoneypotError(
+      `V2 test buy failed after ${maxRetries + 1} attempts: ${lastError?.message || "Unknown error"}`,
+    );
   }
   private async testBuyV3(token: ActiveToken) {
     console.log("Starting V3 test buy...");
@@ -91,13 +109,13 @@ export class HoneypotCheckingService {
 
   private async testSelling(token: ActiveToken) {
     switch (token.protocol) {
-      case "uniV2":
+      case "uniswapv2":
         await this.testSellV2(token);
         break;
-      case "uniV3":
+      case "uniswapv3":
         await this.testSellV3(token);
         break;
-      case "uniV4":
+      case "uniswapv4":
         await this.testSellV4(token);
         break;
       case "aerodrome":
