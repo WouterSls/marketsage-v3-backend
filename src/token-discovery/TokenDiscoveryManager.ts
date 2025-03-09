@@ -8,6 +8,7 @@ import { DISCOVERY_CONFIG } from "./config/discovery-config";
 
 import { TokenDiscoveryManagerError } from "../lib/errors/TokenDiscoveryManagerError";
 import { TokenSecurityValidator } from "../token-security-validator/TokenSecurityValidator";
+import { TokenDiscoveryInfo } from "./models/token-discovery.types";
 
 export class TokenDiscoveryManager {
   private static instance: TokenDiscoveryManager;
@@ -20,12 +21,15 @@ export class TokenDiscoveryManager {
   private scanInterval: NodeJS.Timeout | null = null;
   private lastScannedBlock = 0;
 
-  private statistics = {
+  private statistics: TokenDiscoveryInfo["statistics"] = {
     blocksScanned: 0,
     contractsDiscovered: 0,
+    reverifyableContracts: 0,
     tokensValidated: 0,
     lastScannedBlock: 0,
   };
+
+  private revirableContractAddresses: string[] = [];
 
   private constructor() {}
 
@@ -58,9 +62,9 @@ export class TokenDiscoveryManager {
     }
   }
 
-  getStatus(): { isRunning: boolean; statistics: any } {
+  getStatus(): TokenDiscoveryInfo {
     return {
-      isRunning: this.isRunning,
+      running: this.isRunning,
       statistics: { ...this.statistics },
     };
   }
@@ -114,6 +118,38 @@ export class TokenDiscoveryManager {
     } catch (error) {
       console.error("Failed to stop Token Discovery service", error);
       throw error;
+    }
+  }
+
+  async retryVerification(): Promise<void> {
+    if (!this.contractValidator) {
+      throw new TokenDiscoveryManagerError("Contract validator not initialized");
+    }
+
+    for (const address of this.revirableContractAddresses) {
+      const validationResult: ValidationResult = await this.contractValidator.validateContract(address);
+
+      if (validationResult.isValid) {
+        const address = validationResult.address;
+        const creatorAddress = validationResult.creatorAddress;
+
+        if (!address || address === "" || address.trim() === "") {
+          throw new TokenDiscoveryManagerError("Invalid address");
+        }
+
+        if (!creatorAddress || creatorAddress === "" || creatorAddress.trim() === "") {
+          throw new TokenDiscoveryManagerError("Invalid creator address");
+        }
+
+        await TokenSecurityValidator.getInstance().addNewToken({
+          address,
+          creatorAddress,
+        });
+        this.statistics.tokensValidated++;
+      }
+
+      this.statistics.reverifyableContracts--;
+      this.revirableContractAddresses.splice(this.revirableContractAddresses.indexOf(address), 1);
     }
   }
 
@@ -179,6 +215,9 @@ export class TokenDiscoveryManager {
             creatorAddress,
           });
           this.statistics.tokensValidated++;
+        } else {
+          this.statistics.reverifyableContracts++;
+          this.revirableContractAddresses.push(address);
         }
       }
     } catch (error) {

@@ -1,7 +1,7 @@
 export interface PositionDto {
-  id: number;
   tokenAddress: string;
   tokenName: string;
   averageEntryPriceUsd: string;
+  averageExitPriceUsd: string;
   currentProfitLossUsd: string;
 }

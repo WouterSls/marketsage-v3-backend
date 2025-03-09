@@ -70,6 +70,7 @@ export class Services {
       this.tokenMonitorManager = TokenMonitorManager.getInstance();
       await this.tokenMonitorManager.initialize({
         provider: this.provider,
+        wallet: this.wallet,
         chainConfig: chainConfig,
       });
 

@@ -15,15 +15,13 @@ tags:
     description: Token security validation operations
   - name: Token Monitoring
     description: Token monitoring operations
-  - name: System
-    description: System operations and health checks
 
 paths:
   # Token Discovery Manager
   /token-discovery/status:
     get:
       summary: Token discovery service status
-      description: Returns the current status of the token discovery service
+      description: Returns the current status & info of the token discovery service
       tags:
         - Token Discovery
       responses:
@@ -34,11 +32,14 @@ paths:
               schema:
                 type: object
                 properties:
+                  message:
+                    type: string
                   running:
                     type: boolean
                     description: Whether the token discovery service is running
                   statistics:
-                    $ref: "#/components/schemas/DiscoveryStatistics"
+                    $ref: "#/components/schemas/TokenDiscoveryStatistics"
+                    description: Statistics of the token discovery service
   /token-discovery/start:
     post:
       summary: Start token discovery service
@@ -75,6 +76,37 @@ paths:
                     type: boolean
                   message:
                     type: string
+  /token-discovery/retry-verification:
+    post:
+      summary: Retry token verification
+      description: Retries verification for tokens that failed previous verification attempts
+      tags:
+        - Token Discovery
+      responses:
+        "200":
+          description: Verification retry initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Error retrying token verification"
 
   # Token Security Validator
   /token-security-validator/status:
@@ -91,10 +123,30 @@ paths:
               schema:
                 type: object
                 properties:
-                  status:
+                  message:
                     type: string
                   statistics:
-                    $ref: "#/components/schemas/ValidationStatistics"
+                    $ref: "#/components/schemas/TokenSecurityValidatorStatistics"
+  /token-security-validator/active-tokens:
+    get:
+      summary: Get active tokens
+      description: Returns all active tokens
+      tags:
+        - Token Security Validation
+      responses:
+        "200":
+          description: Active tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  activeTokens:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ActiveToken"
   /token-security-validator/token-liquidity:
     get:
       summary: Check token liquidity
@@ -155,7 +207,19 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TokenValidationItem"
+              type: object
+              required:
+                - address
+                - creatorAddress
+              properties:
+                address:
+                  type: string
+                  description: The token contract address
+                  example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+                creatorAddress:
+                  type: string
+                  description: The address of the token creator
+                  example: "0x6aAFF8af0ae8017725312C388bA3745dfE91185B"
       responses:
         "200":
           description: Token added successfully
@@ -179,26 +243,50 @@ paths:
                     type: string
                   message:
                     type: string
+
   # Token Monitor Manager
-  /token-monitor/status:
+  /token-monitor/tokens:
     get:
-      summary: Token monitor status
-      description: Returns the current status of the token monitor service
+      summary: Get all tokens
+      description: Returns all tokens being monitored
       tags:
         - Token Monitoring
       responses:
         "200":
-          description: Token monitor status
+          description: All tokens
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  status:
+                  message:
                     type: string
-                  statistics:
-                    $ref: "#/components/schemas/MonitoringStatistics"
-
+                    example: "All tokens"
+                  tokens:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TokenDto"
+  /token-monitor/trades:
+    get:
+      summary: Get all trades
+      description: Returns all trades made within the system
+      tags:
+        - Token Monitoring
+      responses:
+        "200":
+          description: All trades
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "All trades"
+                  trades:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TradeDto"
   /token-monitor/positions:
     get:
       summary: Get all positions
@@ -219,7 +307,6 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/PositionDto"
-
   /token-monitor/active-positions:
     get:
       summary: Get active positions
@@ -241,89 +328,212 @@ paths:
                     items:
                       $ref: "#/components/schemas/PositionDto"
 
+  /token-monitor/buy-token:
+    post:
+      summary: Buy token
+      description: Executes a token purchase transaction
+      tags:
+        - Token Monitoring
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tokenAddress
+                - tradeType
+                - usdAmount
+              properties:
+                tokenAddress:
+                  type: string
+                  description: The token contract address
+                  example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+                tradeType:
+                  type: string
+                  description: The type of trade to execute
+                  enum: ["usdValue", "earlyExit", "doubleExit"]
+                  example: "usdValue"
+                usdAmount:
+                  type: number
+                  description: The amount in USD to purchase
+                  example: 100
+      responses:
+        "200":
+          description: Token successfully purchased
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Token bought"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid parameters"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Error buying token"
+  /token-monitor/sell-token:
+    post:
+      summary: Sell token
+      description: Executes a token sell transaction
+      tags:
+        - Token Monitoring
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tokenAddress
+                - formattedAmount
+              properties:
+                tokenAddress:
+                  type: string
+                  description: The token contract address
+                  example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+                formattedAmount:
+                  type: string
+                  description: The formatted amount of tokens to sell
+                  example: "1000.0"
+      responses:
+        "200":
+          description: Token successfully sold
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Token sold"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid parameters"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Error selling token"
+  /token-monitor/monitor-token:
+    post:
+      summary: Monitor token
+      description: Adds a token to the monitoring system
+      tags:
+        - Token Monitoring
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tokenAddress
+              properties:
+                tokenAddress:
+                  type: string
+                  description: The token contract address
+                  example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+      responses:
+        "200":
+          description: Token successfully added to monitoring
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Token monitored"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid token address"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Error monitoring token"
+
 components:
   schemas:
-    ServiceStatus:
-      type: object
-      properties:
-        status:
-          type: string
-        running:
-          type: boolean
-          description: Whether the service is running
-        message:
-          type: string
+    # Token Discovery
+    TokenDiscoveryStatistics:
+      statistics:
+        type: object
+        properties:
+          blocksScanned:
+            type: number
+            description: Number of blocks scanned
+          contractsDiscovered:
+            type: number
+            description: Number of contracts discovered
+          reverifyableContracts:
+            type: number
+            description: Number of reverifyable contracts
+          tokensValidated:
+            type: number
+            description: Number of tokens validated
+          lastScannedBlock:
+            type: number
+            description: Last scanned block
 
-    DiscoveryStatistics:
+    # Token Security Validation
+    TokenSecurityValidatorStatistics:
       type: object
       properties:
-        tokensDiscovered:
-          type: number
-          description: Number of tokens discovered
-        lastDiscovery:
-          type: string
-          format: date-time
-          description: Timestamp of the last discovery
-
-    ValidationStatistics:
-      type: object
-      properties:
-        tokensValidated:
-          type: number
-          description: Number of tokens validated
-        tokensRejected:
-          type: number
-          description: Number of tokens rejected
-        activeTokens:
+        activeTokenCount:
           type: number
           description: Number of active tokens
-
-    MonitoringStatistics:
-      type: object
-      properties:
-        activePositions:
+        honeypotCount:
           type: number
-          description: Number of active positions
-        closedPositions:
+          description: Number of honeypots
+        rugpullCount:
           type: number
-          description: Number of closed positions
-        profitablePositions:
+          description: Number of rugpulls
+        tokensCreated:
           type: number
-          description: Number of profitable positions
-        unprofitablePositions:
-          type: number
-          description: Number of unprofitable positions
-
-    PositionDto:
-      type: object
-      properties:
-        id:
-          type: string
-          description: Position ID
-        tokenAddress:
-          type: string
-          description: Token contract address
-        entryPrice:
-          type: string
-          description: Entry price
-        currentPrice:
-          type: string
-          description: Current price
-        profit:
-          type: number
-          description: Current profit/loss percentage
-        entryTime:
-          type: string
-          format: date-time
-          description: Entry timestamp
-        exitTime:
-          type: string
-          format: date-time
-          description: Exit timestamp (null if position is active)
-        active:
-          type: boolean
-          description: Whether the position is active
-
+          description: Number of tokens created
     LiquidityDto:
       type: object
       properties:
@@ -372,22 +582,6 @@ components:
             liquidityEth:
               type: string
               description: Liquidity in ETH
-
-    TokenValidationItem:
-      type: object
-      required:
-        - address
-        - creatorAddress
-      properties:
-        address:
-          type: string
-          description: The token contract address
-          example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
-        creatorAddress:
-          type: string
-          description: The address of the token creator
-          example: "0x6aAFF8af0ae8017725312C388bA3745dfE91185B"
-
     ActiveToken:
       type: object
       properties:
@@ -430,16 +624,93 @@ components:
               type: string
               example: "1000000000000000000000000"
 
-    LiquidityCheckResult:
+    # Token Monitoring
+    MonitoringStatistics:
       type: object
       properties:
-        hasLiquidity:
+        activePositions:
+          type: number
+          description: Number of active positions
+        closedPositions:
+          type: number
+          description: Number of closed positions
+        profitablePositions:
+          type: number
+          description: Number of profitable positions
+        unprofitablePositions:
+          type: number
+          description: Number of unprofitable positions
+    TokenDto:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Token name
+        address:
+          type: string
+          description: Token contract address
+        creatorAddress:
+          type: string
+          description: Token creator address
+        isSuspicious:
           type: boolean
-        protocol:
+          description: Whether the token is suspicious
+        discoveredAt:
+          type: number
+          description: Timestamp when the token was discovered (in milliseconds)
+    TradeDto:
+      type: object
+      properties:
+        tokenAddress:
           type: string
-          description: The protocol of the token
-          example: "uniV2"
-        liquidityETH:
+          description: Token contract address
+        tokenName:
           type: string
-          description: Liquidity in ETH
-          example: "10.5"
+          description: Token contract address
+        transactionHash:
+          type: string
+          description: Transaction hash
+        status:
+          type: string
+          enum: ["buy", "sell"]
+          description: Trade status
+        type:
+          type: string
+          enum: ["usdValue", "doubleExit", "earlyExit", "partialSell", "fullSell"]
+          description: Trade type
+        ethSpent:
+          type: string
+          description: ETH spent
+        ethReceived:
+          type: string
+          description: ETH received
+        formattedSellAmount:
+          type: string
+          description: Formatted sell amount
+        formattedBuyAmount:
+          type: string
+          description: Formatted buy amount
+        gasCostEth:
+          type: string
+          description: Gas cost in ETH
+        createdAt:
+          type: number
+          description: Timestamp when the trade was created (in milliseconds)
+    PositionDto:
+      type: object
+      properties:
+        tokenAddress:
+          type: string
+          description: Token contract address
+        tokenName:
+          type: string
+          description: Token name
+        averageEntryPriceUsd:
+          type: string
+          description: Average entry price in USD
+        averageExitPriceUsd:
+          type: string
+          description: Average exit price in USD
+        currentProfitLossUsd:
+          type: number
+          description: Current profit/loss in USD

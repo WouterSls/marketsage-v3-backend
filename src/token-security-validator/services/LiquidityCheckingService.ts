@@ -242,8 +242,10 @@ export class LiquidityCheckingService {
       const [reserveToken, reserveETH] =
         token0 === tokenAddress ? [reserves[0], reserves[1]] : [reserves[1], reserves[0]];
 
+      const exists = reserveETH > this.LIQUIDITY_THRESHOLD;
+
       return {
-        exists: true,
+        exists: exists,
         liquidityTokens: reserveToken.toString(),
         liquidityEth: reserveETH.toString(),
         pairAddress: pairAddress,

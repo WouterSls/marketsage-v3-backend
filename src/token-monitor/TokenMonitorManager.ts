@@ -11,16 +11,13 @@ import { PriceCheckingService } from "./services/PriceCheckingService";
 
 import { TokenMonitorManagerError } from "../lib/errors/TokenMonitorMangerError";
 
+import { TradingService } from "./services/TradingService";
+import { TradeType } from "../lib/db/schema";
+
 export class TokenMonitorManager {
   private static instance: TokenMonitorManager;
 
-  private statistics = {
-    tokensMonitored: 0,
-    tokensSold: 0,
-  };
-
   private provider: Provider | null = null;
-  private wallet: Wallet | null = null;
 
   private positionService: PositionService | null = null;
   private tokenService: TokenService | null = null;
@@ -30,6 +27,7 @@ export class TokenMonitorManager {
 
   private liquidityCheckingService: LiquidityCheckingService | null = null;
   private priceCheckingService: PriceCheckingService | null = null;
+  private tradingService: TradingService | null = null;
 
   private constructor() {}
 
@@ -42,7 +40,6 @@ export class TokenMonitorManager {
 
   async initialize(config: { provider: Provider; chainConfig: ChainConfig; wallet: Wallet }): Promise<void> {
     this.provider = config.provider;
-    this.wallet = config.wallet;
     this.positionService = new PositionService();
     this.tokenService = new TokenService();
     this.tradeService = new TradeService();
@@ -52,15 +49,17 @@ export class TokenMonitorManager {
     this.liquidityCheckingService = new LiquidityCheckingService(config.provider, config.chainConfig);
     this.priceCheckingService = new PriceCheckingService(config.provider, config.chainConfig);
 
+    this.tradingService = new TradingService(
+      config.wallet,
+      config.chainConfig,
+      this.tradeService,
+      this.positionService,
+      this.tokenService,
+    );
+
     this.setupTokenMonitor();
 
     console.log("Token Monitor Manager initialized");
-  }
-
-  getStatus(): { statistics: any } {
-    return {
-      statistics: this.statistics,
-    };
   }
 
   async getAllPositions(): Promise<SelectPosition[]> {
@@ -88,9 +87,15 @@ export class TokenMonitorManager {
     return this.tradeService.getAllTrades();
   }
 
-  async buyToken(tokenAddress: string): Promise<void> {
-    if (!this.tokenService || !this.tradeService || !this.provider) {
+  async buyToken(tokenAddress: string, tradeType: TradeType, usdAmount: number): Promise<void> {
+    if (!this.provider) {
+      throw new TokenMonitorManagerError("Provider not initialized");
+    }
+    if (!this.tokenService || !this.tradeService) {
       throw new TokenMonitorManagerError("Token service or trade service not initialized");
+    }
+    if (!this.tradingService || !this.liquidityCheckingService) {
+      throw new TokenMonitorManagerError("Trading service or liquidity checking service not initialized");
     }
 
     const token: SelectToken | null = await this.tokenService.getTokenByAddress(tokenAddress);
@@ -98,12 +103,31 @@ export class TokenMonitorManager {
       throw new TokenMonitorManagerError(`No validated token found for address ${tokenAddress}`);
     }
 
-    const erc20: ERC20 = await createMinimalErc20(token.address, this.provider);
+    if (token.status !== "buyable" || token.isSuspicious) {
+      throw new TokenMonitorManagerError("Token is not buyable");
+    }
+
+    const isRugpull = await this.liquidityCheckingService.rugpullCheck(token);
+    if (isRugpull) {
+      console.log(`Rugpull detection | validated token ${token.name} is a rugpull`);
+      await this.tokenService.updateToken(token.address, { status: "rugpull" });
+      return;
+    }
+
+    const erc20 = await createMinimalErc20(token.address, this.provider);
+
+    await this.tradingService.buy(token, erc20, tradeType, usdAmount);
   }
 
-  async sellToken(tokenAddress: string): Promise<void> {
-    if (!this.tokenService || !this.tradeService || !this.provider) {
+  async sellToken(tokenAddress: string, formattedAmount: number): Promise<void> {
+    if (!this.provider) {
+      throw new TokenMonitorManagerError("Provider not initialized");
+    }
+    if (!this.tokenService || !this.tradeService) {
       throw new TokenMonitorManagerError("Token service or trade service not initialized");
+    }
+    if (!this.tradingService || !this.liquidityCheckingService) {
+      throw new TokenMonitorManagerError("Trading service or liquidity checking service not initialized");
     }
 
     const token: SelectToken | null = await this.tokenService.getTokenByAddress(tokenAddress);
@@ -111,12 +135,26 @@ export class TokenMonitorManager {
       throw new TokenMonitorManagerError(`No validated token found for address ${tokenAddress}`);
     }
 
+    const buyTrades: SelectTrade[] = await this.tradeService.getBuyTradesForToken(tokenAddress);
+    if (buyTrades.length === 0) {
+      throw new TokenMonitorManagerError("No buy trades found for token");
+    }
+
     const erc20: ERC20 = await createMinimalErc20(token.address, this.provider);
+
+    await this.tradingService.sell(token, erc20, formattedAmount);
   }
 
   async monitorToken(tokenAddress: string): Promise<void> {
-    if (!this.tokenService || !this.liquidityCheckingService || !this.priceCheckingService || !this.provider) {
-      throw new TokenMonitorManagerError("Token service not initialized");
+    if (!this.provider) {
+      throw new TokenMonitorManagerError("Provider not initialized");
+    }
+    if (!this.tokenService || !this.tradeService) {
+      throw new TokenMonitorManagerError("Token service or trade service not initialized");
+    }
+
+    if (!this.liquidityCheckingService || !this.priceCheckingService) {
+      throw new TokenMonitorManagerError("Liquidity checking service or price checking service not initialized");
     }
 
     const token: SelectToken | null = await this.tokenService.getTokenByAddress(tokenAddress);
@@ -144,16 +182,16 @@ export class TokenMonitorManager {
     const liquidityDto: LiquidityDto = LiquidityMapper.toLiquidityDto(liquidity);
     console.log("Liquidity", JSON.stringify(liquidityDto, null, 2));
 
-    const buyType = token.buyType;
-    switch (buyType) {
-      case "earlyExit":
-        break;
-      case "doubleExit":
-        break;
-      case "usdValue":
-        break;
-      default:
-        throw new TokenMonitorManagerError(`Unknown buy type: ${buyType}`);
+    const tradesToEvaulate: SelectTrade[] = await this.tradeService.getBuyTradesForToken(tokenAddress);
+
+    for (const trade of tradesToEvaulate) {
+      const tradeType = trade.type;
+
+      if (tradeType === "earlyExit") {
+      }
+
+      if (tradeType === "doubleExit") {
+      }
     }
   }
 

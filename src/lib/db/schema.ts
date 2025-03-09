@@ -3,14 +3,14 @@ import { sql } from "drizzle-orm";
 
 export type TokenStatus =
   | "buyable"
+  | "sold"
   // archived
-  | "noliquidity"
   | "rugpull"
-  | "honeypot"
   | "archived";
 export type DexType = "uniswapv2" | "uniswapv3" | "uniswapv4" | "aerodrome" | "balancer" | null;
-export type TradeType = "buy" | "sell" | "stoploss";
-export type BuyType = "usdValue" | "doubleExit" | "earlyExit" | null;
+
+export type TradeStatus = "buy" | "sell";
+export type TradeType = "usdValue" | "doubleExit" | "earlyExit" | "partialSell" | "fullSell";
 
 export const token = sqliteTable("token", {
   id: integer("id").primaryKey({ autoIncrement: true }).notNull(),
@@ -20,17 +20,14 @@ export const token = sqliteTable("token", {
   status: text("status", {
     enum: [
       "buyable",
+      "sold",
       // archived
-      "noliquidity",
       "rugpull",
-      "honeypot",
       "archived",
     ],
   }).notNull(),
-  buyType: text("buy_type", { enum: ["usdValue", "doubleExit", "earlyExit"] }),
   dex: text("dex", { enum: ["uniswapv2", "uniswapv3", "uniswapv4", "aerodrome", "balancer"] }),
   isSuspicious: integer("is_suspicious", { mode: "boolean" }).notNull().default(false),
-  retryCounter: integer("retry_counter").notNull().default(0),
   discoveredAt: integer("discovered_at")
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
@@ -44,7 +41,8 @@ export const trade = sqliteTable("trade", {
   tokenAddress: text("token_address").notNull(),
   tokenName: text("token_name").notNull(),
   transactionHash: text("transaction_hash").notNull(),
-  tradeType: text("trade_type", { enum: ["buy", "sell", "stoploss"] }).notNull(),
+  status: text("status", { enum: ["buy", "sell"] }).notNull(),
+  type: text("type", { enum: ["usdValue", "doubleExit", "earlyExit", "partialSell", "fullSell"] }).notNull(),
   ethSpent: text("eth_spent").notNull().default("0"),
   ethReceived: text("eth_received").notNull().default("0"),
   rawSellAmount: text("raw_sell_amount").notNull().default("0"),
@@ -56,9 +54,6 @@ export const trade = sqliteTable("trade", {
   gasCostEth: text("gas_cost_eth").notNull(),
   gasCostUsd: text("gas_cost_usd").notNull(),
   createdAt: integer("created_at")
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: integer("updated_at")
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
 });

@@ -4,7 +4,7 @@ import { sleep } from "../lib/utils/helper-functions";
 import { TokenSecurityValidatorError } from "../lib/errors/TokenSecurityValidatorError";
 
 import { TokenService } from "../db/token/TokenService";
-import { ActiveToken } from "./models/token-security-validator.types";
+import { ActiveToken, TokenSecurityValidatorStatistics } from "./models/token-security-validator.types";
 import { createMinimalErc20 } from "../lib/blockchain/utils/blockchain-utils";
 import { Provider, Wallet } from "ethers";
 import { LiquidityCheckingService } from "./services/LiquidityCheckingService";
@@ -56,15 +56,15 @@ export class TokenSecurityValidator {
     console.log("Token Security Validator initialized");
   }
 
-  getStatus(): { statistics: any } {
-    return {
-      statistics: {
-        activeTokenCount: this.activeTokens.size,
-        honeypotCount: this.statistics.honeypotCount,
-        rugpullCount: this.statistics.rugpullCount,
-        tokensCreated: this.statistics.tokensCreated,
-      },
+  getStatistics(): TokenSecurityValidatorStatistics {
+    const statistics: TokenSecurityValidatorStatistics = {
+      activeTokenCount: this.activeTokens.size,
+      honeypotCount: this.statistics.honeypotCount,
+      rugpullCount: this.statistics.rugpullCount,
+      tokensCreated: this.statistics.tokensCreated,
     };
+
+    return statistics;
   }
   getActiveTokens(): ActiveToken[] {
     return Array.from(this.activeTokens.values());

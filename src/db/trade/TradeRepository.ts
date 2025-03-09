@@ -1,9 +1,9 @@
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray, and } from "drizzle-orm";
 
 import { db } from "../../lib/db/db";
 import * as schema from "../../lib/db/schema";
-import { trade } from "../../lib/db/schema";
+import { trade, TradeStatus, TradeType } from "../../lib/db/schema";
 
 import { TechnicalError } from "../../lib/errors/TechnicalError";
 import { splitTokenAddress } from "../../lib/utils/helper-functions";
@@ -110,16 +110,59 @@ export class TradeRepository {
   }
 
   /**
+   * Retrieves all trades of a specific status
+   * @param tradeStatus - The status of trades to retrieve (buy, sell)
+   * @returns Promise resolving to an array of trades of the specified status
+   * @throws TechnicalError if database operation fails
+   */
+  async getTradesByStatus(tradeStatus: TradeStatus): Promise<SelectTrade[]> {
+    try {
+      return await this.db.select().from(trade).where(eq(trade.status, tradeStatus)).orderBy(desc(trade.createdAt));
+    } catch (error: unknown) {
+      console.error(`Error getting trades for status: ${tradeStatus}`, error);
+      if (error instanceof TechnicalError) {
+        throw error;
+      }
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      throw new TechnicalError(errorMessage);
+    }
+  }
+
+  /**
    * Retrieves all trades of a specific type
-   * @param tradeType - The type of trades to retrieve (buy, sell, stoploss)
+   * @param tradeType - The type of trades to retrieve (earlyExit, doubleExit, usdValue, partialSell, fullSell)
    * @returns Promise resolving to an array of trades of the specified type
    * @throws TechnicalError if database operation fails
    */
-  async getTradesByType(tradeType: "buy" | "sell" | "stoploss"): Promise<SelectTrade[]> {
+  async getTradesByType(tradeType: TradeType): Promise<SelectTrade[]> {
     try {
-      return await this.db.select().from(trade).where(eq(trade.tradeType, tradeType)).orderBy(desc(trade.createdAt));
+      return await this.db.select().from(trade).where(eq(trade.type, tradeType)).orderBy(desc(trade.createdAt));
     } catch (error: unknown) {
       console.error(`Error getting trades for type: ${tradeType}`, error);
+      if (error instanceof TechnicalError) {
+        throw error;
+      }
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      throw new TechnicalError(errorMessage);
+    }
+  }
+
+  /**
+   * Retrieves all buy trades linked to a token that are not sold
+   * @param tokenAddress - The token's address
+   * @param tradeTypes - The types of trades to retrieve
+   * @returns Promise resolving to an array of buy trades of the specified type
+   * @throws TechnicalError if database operation fails
+   */
+  async getTradesForTokenWithType(tokenAddress: string, tradeTypes: TradeType[]): Promise<SelectTrade[]> {
+    try {
+      return await this.db
+        .select()
+        .from(trade)
+        .where(and(eq(trade.tokenAddress, tokenAddress), inArray(trade.type, tradeTypes)))
+        .orderBy(desc(trade.createdAt));
+    } catch (error: unknown) {
+      console.error(`Error getting buy trades for token: ${splitTokenAddress(tokenAddress)}`, error);
       if (error instanceof TechnicalError) {
         throw error;
       }
@@ -145,39 +188,6 @@ export class TradeRepository {
       return result[0];
     } catch (error: unknown) {
       console.error("Error saving trade", error);
-      if (error instanceof TechnicalError) {
-        throw error;
-      }
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      throw new TechnicalError(errorMessage);
-    }
-  }
-
-  /**
-   * Updates an existing trade in the database
-   * @param id - The ID of the trade to update
-   * @param updates - Partial trade data to update (excluding id and timestamps)
-   * @returns Promise resolving to the updated trade
-   * @throws TechnicalError if trade is not found or update fails
-   */
-  async updateTrade(id: number, updates: Partial<Omit<SelectTrade, "id" | "createdAt">>): Promise<SelectTrade> {
-    try {
-      const result = await this.db
-        .update(trade)
-        .set({
-          ...updates,
-          updatedAt: Math.floor(Date.now() / 1000),
-        })
-        .where(eq(trade.id, id))
-        .returning();
-
-      if (result.length === 0) {
-        throw new TechnicalError(`Trade not found with id: ${id}`);
-      }
-
-      return result[0];
-    } catch (error: unknown) {
-      console.error("Error updating trade", error);
       if (error instanceof TechnicalError) {
         throw error;
       }

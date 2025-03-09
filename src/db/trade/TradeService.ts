@@ -1,7 +1,7 @@
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 
 import * as schema from "../../lib/db/schema";
-import { TradeType } from "../../lib/db/schema";
+import { TradeStatus, TradeType } from "../../lib/db/schema";
 
 import { TradeRepository, SelectTrade, InsertTrade } from "./TradeRepository";
 import { TechnicalError } from "../../lib/errors/TechnicalError";
@@ -55,6 +55,16 @@ export class TradeService {
   async getTradesByType(tradeType: TradeType): Promise<SelectTrade[]> {
     return this.repository.getTradesByType(tradeType);
   }
+  /**
+   * Retrieves all buy trades linked to a token that are not sold
+   * @param tokenAddress - The token's address
+   * @returns Promise resolving to an array of buy trades of the specified type
+   * @throws TechnicalError if database operation fails
+   */
+  async getBuyTradesForToken(tokenAddress: string): Promise<SelectTrade[]> {
+    const buyTypes: TradeType[] = ["usdValue", "doubleExit", "earlyExit"];
+    return this.repository.getTradesForTokenWithType(tokenAddress, buyTypes);
+  }
 
   /**
    * Creates a new buy trade in the database
@@ -69,6 +79,7 @@ export class TradeService {
   async createTrade(
     tokenAddress: string,
     tokenName: string,
+    status: TradeStatus,
     type: TradeType,
     tradeInfo: TradeSuccessInfo,
   ): Promise<SelectTrade> {
@@ -77,21 +88,36 @@ export class TradeService {
         throw new TechnicalError("Invalid token address format");
       }
 
+      if (status !== "buy" && status !== "sell") {
+        throw new TechnicalError("Invalid trade status");
+      }
+
+      const validBuyTypes = ["usdValue", "doubleExit", "earlyExit"];
+      const validSellTypes = ["partialSell", "fullSell"];
+
+      if (status === "buy" && !validBuyTypes.includes(type)) {
+        throw new TechnicalError("Invalid buy type");
+      }
+
+      if (status === "sell" && !validSellTypes.includes(type)) {
+        throw new TechnicalError("Invalid sell type");
+      }
+
       const nowUnix = Math.floor(Date.now() / 1000);
       const tradeData: InsertTrade = {
         tokenAddress,
         tokenName,
         transactionHash: tradeInfo.transactionHash,
-        tradeType: type,
+        status: status,
+        type: type,
         tokenPriceUsd: tradeInfo.tokenPriceUsd,
         ethPriceUsd: tradeInfo.ethPriceUsd,
         gasCostEth: tradeInfo.gasCost,
         gasCostUsd: (Number(tradeInfo.gasCost) * Number(tradeInfo.ethPriceUsd || 0)).toString(),
         createdAt: nowUnix,
-        updatedAt: nowUnix,
       };
 
-      if (type === "buy") {
+      if (status === "buy") {
         tradeData.ethSpent = tradeInfo.ethSpent?.toString();
         tradeData.rawBuyAmount = Number(tradeInfo.rawTokensReceived)?.toString();
         tradeData.formattedBuyAmount = tradeInfo.formattedTokensReceived;

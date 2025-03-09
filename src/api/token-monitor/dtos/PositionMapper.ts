@@ -1,13 +1,13 @@
-import { SelectPosition } from "../../../db/position/PositionRepository";
+import { SelectPosition } from "../../../db/index";
 import { PositionDto } from "./PositionDto";
 
 export class PositionMapper {
   public static toPositionDto(position: SelectPosition): PositionDto {
     return {
-      id: position.id,
       tokenAddress: position.tokenAddress,
       tokenName: position.tokenName,
       averageEntryPriceUsd: position.averageEntryPriceUsd,
+      averageExitPriceUsd: position.averageExitPriceUsd,
       currentProfitLossUsd: position.currentProfitLossUsd,
     };
   }

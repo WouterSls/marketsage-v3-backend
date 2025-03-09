@@ -11,8 +11,10 @@ import { TechnicalError } from "../../errors/TechnicalError";
 import { RouterError } from "../../errors/RouterError";
 import { TRADING_CONFIG } from "../config/trading-config";
 
-export class UniswapV2Router {
-  private readonly NAME = "UniswapV2Router";
+import { IV2Router } from "./interfaces/IV2Router";
+
+export class UniswapV2Router implements IV2Router {
+  private readonly NAME = "V2Router";
   private isInitialized = false;
 
   //Addresses
