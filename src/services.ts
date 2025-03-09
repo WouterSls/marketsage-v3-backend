@@ -8,6 +8,7 @@ import { TokenMonitoringQueueReceiver } from "./token-monitor/queue/TokenMonitor
 import { QueueManager } from "./lib/queues/QueueManager";
 import { TokenMonitoringItem, TokenValidationItem } from "./lib/queues/QueueTypes";
 import { QueueNames } from "./lib/queues/QueueTypes";
+import { WebhookService } from "./lib/webhooks/WebhookService";
 
 export class Services {
   private static instance: Services;
@@ -15,6 +16,8 @@ export class Services {
   private wallet: Wallet;
   private baseScanApiKey: string;
   private isInitialized = false;
+
+  private webhookService: WebhookService | null = null;
 
   private queueManager: QueueManager | null = null;
   private tokenValidationQueueReceiver: TokenValidationQueueReceiver | null = null;
@@ -50,6 +53,7 @@ export class Services {
       const chainConfig = getChainConfig(chainId);
 
       this.queueManager = QueueManager.getInstance();
+      this.webhookService = WebhookService.getInstance();
 
       this.queueManager.getOrCreateQueue<TokenValidationItem>(QueueNames.TOKEN_VALIDATION);
       this.queueManager.getOrCreateQueue<TokenMonitoringItem>(QueueNames.TOKEN_MONITORING);

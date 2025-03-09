@@ -7,6 +7,8 @@ import cors from "cors";
 import tokenDiscoveryRoutes from "./api/token-discovery/TokenDiscoveryRouter";
 import tokenSecurityValidatorRoutes from "./api/token-security-validator/TokenSecurityRouter";
 import tokenMonitorRoutes from "./api/token-monitor/TokenMonitorRouter";
+import webhookRoutes from "./lib/webhooks/WebhookRouter";
+
 import { errorHandler, notFoundHandler } from "./lib/middlewares";
 
 const app = express();
@@ -18,6 +20,7 @@ app.use(cors({ origin: "*" }));
 app.use("/api/v1", tokenDiscoveryRoutes);
 app.use("/api/v1", tokenSecurityValidatorRoutes);
 app.use("/api/v1", tokenMonitorRoutes);
+app.use("/api/v1", webhookRoutes);
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
 

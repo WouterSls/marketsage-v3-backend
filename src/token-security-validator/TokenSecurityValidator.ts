@@ -12,9 +12,13 @@ import { ChainConfig } from "../lib/blockchain/config/chain-config";
 import { TokenValidationQueueService } from "./queue/TokenValidationQueueService";
 import { SECURITY_VALIDATOR_CONFIG } from "./config/security-validator-config";
 import { HoneypotCheckingService } from "./services/HoneypotCheckingService";
+import { TokenMapper } from "../api/token-monitor/dtos/TokenMapper";
+import { TokenDto } from "../api/token-monitor/dtos/TokenDto";
+import { WebhookService } from "../lib/webhooks/WebhookService";
 
 export class TokenSecurityValidator {
   private static instance: TokenSecurityValidator;
+  private isInitialized: boolean = false;
 
   private activeTokens: Map<string, ActiveToken> = new Map();
   private statistics = {
@@ -29,6 +33,7 @@ export class TokenSecurityValidator {
   private tokenService: TokenService | null = null;
   private liquidityCheckingService: LiquidityCheckingService | null = null;
   private honeypotCheckingService: HoneypotCheckingService | null = null;
+  private webhookService: WebhookService | null = null;
 
   private provider: Provider | null = null;
 
@@ -50,10 +55,12 @@ export class TokenSecurityValidator {
     this.tokenService = new TokenService();
     this.liquidityCheckingService = new LiquidityCheckingService(config.provider, config.chainConfig);
     this.honeypotCheckingService = new HoneypotCheckingService(config.wallet, config.chainConfig);
+    this.webhookService = WebhookService.getInstance();
 
     this.setupTokenValidator();
 
     console.log("Token Security Validator initialized");
+    this.isInitialized = true;
   }
 
   getStatistics(): TokenSecurityValidatorStatistics {
@@ -123,11 +130,11 @@ export class TokenSecurityValidator {
   }
 
   async validateToken(tokenAddress: string): Promise<void> {
-    if (!this.tokenService || !this.liquidityCheckingService || !this.honeypotCheckingService) {
-      throw new TokenSecurityValidatorError("Token monitoring queue service or token service not initialized");
+    if (!this.isInitialized) {
+      throw new TokenSecurityValidatorError("Token Security Validator not initialized");
     }
 
-    const token = await this.tokenService.getTokenByAddress(tokenAddress);
+    const token = await this.tokenService!.getTokenByAddress(tokenAddress);
 
     if (token) {
       throw new TokenSecurityValidatorError(`Token ${tokenAddress} already exists in database`);
@@ -143,7 +150,7 @@ export class TokenSecurityValidator {
 
       console.log(`\nStarting Liquidity Detection for ${activeToken.erc20.getName()}...`);
       console.log("--------------------------------");
-      const liquidityCheckResult = await this.liquidityCheckingService.validateInitialLiquidity(activeToken);
+      const liquidityCheckResult = await this.liquidityCheckingService!.validateInitialLiquidity(activeToken);
       if (!liquidityCheckResult.hasLiquidity) {
         console.log(`No initial liquidity found`);
         return;
@@ -151,7 +158,7 @@ export class TokenSecurityValidator {
 
       console.log("Initial liquidity found, waiting for 90 seconds to check for instant rugpull...");
       await sleep(90);
-      const rugpullCheckResult = await this.liquidityCheckingService.rugpullCheck(activeToken);
+      const rugpullCheckResult = await this.liquidityCheckingService!.rugpullCheck(activeToken);
       if (rugpullCheckResult.isRugpull) {
         console.log("Rugpull detected for token: ", activeToken.erc20.getName());
         this.activeTokens.delete(tokenAddress);
@@ -161,7 +168,7 @@ export class TokenSecurityValidator {
 
       console.log(`\nStarting Honeypot Detection for ${activeToken.erc20.getName()}...`);
       console.log("--------------------------------");
-      const honeypotCheckResult = await this.honeypotCheckingService.honeypotCheck(activeToken);
+      const honeypotCheckResult = await this.honeypotCheckingService!.honeypotCheck(activeToken);
       if (honeypotCheckResult.isHoneypot) {
         console.log(
           `Honeypot detected for token: ${activeToken.erc20.getName()} | reason: ${honeypotCheckResult.reason}`,
@@ -177,7 +184,19 @@ export class TokenSecurityValidator {
       const status = "buyable";
       const dex = activeToken.protocol;
 
-      this.tokenService.createToken(tokenAddress, tokenName, creatorAddress, discoveredAt, status, dex);
+      const createdToken = await this.tokenService!.createToken(
+        tokenAddress,
+        tokenName,
+        creatorAddress,
+        discoveredAt,
+        status,
+        dex,
+      );
+      const tokenDto: TokenDto = TokenMapper.toTokenDto(createdToken);
+      await this.webhookService!.broadcast("tokenUpdateHook", {
+        tokenAddress: tokenAddress,
+        data: tokenDto,
+      });
       this.statistics.tokensCreated++;
       this.activeTokens.delete(tokenAddress);
 

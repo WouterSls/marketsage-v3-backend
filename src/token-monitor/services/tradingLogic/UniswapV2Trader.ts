@@ -9,6 +9,11 @@ import { sleep } from "../../../lib/utils/helper-functions";
 
 import { V2TraderError } from "../../../lib/errors/V2TraderError";
 import { TradeType } from "../../../lib/db/schema";
+import { TradeDto } from "../../../api/token-monitor/dtos/TradeDto";
+import { TradeMapper } from "../../../api/token-monitor/dtos/TradeMapper";
+import { WebhookService } from "../../../lib/webhooks/WebhookService";
+import { TokenDto } from "../../../api/token-monitor/dtos/TokenDto";
+import { TokenMapper } from "../../../api/token-monitor/dtos/TokenMapper";
 
 export class UniswapV2Trader implements ITrader {
   private readonly MAX_RETRIES = 3;
@@ -23,6 +28,7 @@ export class UniswapV2Trader implements ITrader {
     private readonly tradeService: TradeService,
     private readonly positionService: PositionService,
     private readonly tokenService: TokenService,
+    private readonly webhookService: WebhookService,
   ) {
     this.uniswapV2Router = new UniswapV2Router(this.wallet, this.chainConfig);
   }
@@ -40,9 +46,21 @@ export class UniswapV2Trader implements ITrader {
         const status = "buy";
         const tradeType = _tradeType;
 
-        await this.tokenService.updateToken(tokenAddress, { status: "buyable" });
-        await this.tradeService.createTrade(tokenAddress, tokenName, status, tradeType, tradeSuccessInfo);
+        const updatedToken = await this.tokenService.updateToken(tokenAddress, { status: "buyable" });
+        const trade = await this.tradeService.createTrade(tokenAddress, tokenName, status, tradeType, tradeSuccessInfo);
         await this.positionService.updatePositionOnBuy(tokenAddress, tokenName, tradeSuccessInfo);
+
+        const tradeDto: TradeDto = TradeMapper.toTradeDto(trade);
+        const tokenDto: TokenDto = TokenMapper.toTokenDto(updatedToken);
+
+        await this.webhookService.broadcast("tradeHook", {
+          tokenAddress: token.address,
+          data: tradeDto,
+        });
+        await this.webhookService.broadcast("tokenUpdateHook", {
+          tokenAddress: token.address,
+          data: tokenDto,
+        });
 
         console.log("V2 Trader: Buy successful");
         return tradeSuccessInfo;
@@ -90,10 +108,21 @@ export class UniswapV2Trader implements ITrader {
         const tradeType = hasRemainingBalance ? "partialSell" : "fullSell";
 
         if (!hasRemainingBalance) {
-          await this.tokenService.updateToken(tokenAddress, { status: "sold" });
+          const updatedToken = await this.tokenService.updateToken(tokenAddress, { status: "sold" });
+          const tokenDto: TokenDto = TokenMapper.toTokenDto(updatedToken);
+          await this.webhookService.broadcast("tokenUpdateHook", {
+            tokenAddress: token.address,
+            data: tokenDto,
+          });
         }
 
-        await this.tradeService.createTrade(tokenAddress, tokenName, status, tradeType, tradeSuccessInfo);
+        const trade = await this.tradeService.createTrade(tokenAddress, tokenName, status, tradeType, tradeSuccessInfo);
+        const tradeDto: TradeDto = TradeMapper.toTradeDto(trade);
+        await this.webhookService.broadcast("tradeHook", {
+          tokenAddress: token.address,
+          data: tradeDto,
+        });
+
         await this.positionService.updatePositionOnSell(tokenAddress, tokenName, tradeSuccessInfo);
 
         console.log("V2 Trader: Sell successful");

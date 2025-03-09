@@ -8,6 +8,7 @@ import { ChainConfig, approveTokenSpending, ERC20, TradeSuccessInfo } from "../.
 import { ITrader } from "../../interfaces/ITrader";
 
 import { V3TraderError } from "../../../lib/errors/V3TraderError";
+import { WebhookService } from "../../../lib/webhooks/WebhookService";
 
 export class UniswapV3Trader implements ITrader {
   private readonly NAME = "Uniswap V3";
@@ -19,6 +20,7 @@ export class UniswapV3Trader implements ITrader {
     private readonly tradeService: TradeService,
     private readonly positionService: PositionService,
     private readonly tokenService: TokenService,
+    private readonly webhookService: WebhookService,
   ) {}
 
   getName = (): string => this.NAME;

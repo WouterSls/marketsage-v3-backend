@@ -16,7 +16,7 @@ export class PriceCheckingService {
     this.v2PriceOracle = new V2PriceOracle(provider, chainConfig);
   }
 
-  async getTokenPriceUsd(token: SelectToken, erc20: ERC20) {
+  async getTokenPriceUsd(token: SelectToken, erc20: ERC20): Promise<number> {
     switch (token.dex) {
       case "uniswapv2":
         return await this.v2PriceOracle.getTokenPriceUsdc(erc20);
@@ -29,6 +29,8 @@ export class PriceCheckingService {
       case "aerodrome":
         throw new PriceCheckerError("Aerodrome not implemented");
       // research price checking for aerodrome
+      default:
+        throw new PriceCheckerError(`Unknown dex: ${token.dex}`);
     }
   }
 
@@ -45,6 +47,8 @@ export class PriceCheckingService {
       case "aerodrome":
         throw new PriceCheckerError("Aerodrome not implemented");
       // research price checking for aerodrome
+      default:
+        throw new PriceCheckerError(`Unknown dex: ${token.dex}`);
     }
   }
 }

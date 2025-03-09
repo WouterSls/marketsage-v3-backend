@@ -10,6 +10,7 @@ import { UniswapV4Trader } from "./tradingLogic/UniswapV4Trader";
 import { ChainConfig, ERC20 } from "../../lib/blockchain/index";
 
 import { TradingServiceError } from "../../lib/errors/TradingServiceError";
+import { WebhookService } from "../../lib/webhooks/WebhookService";
 
 export class TradingService {
   private readonly uniswapV2Trader: UniswapV2Trader;
@@ -22,10 +23,32 @@ export class TradingService {
     tradeService: TradeService,
     positionService: PositionService,
     tokenService: TokenService,
+    webhookService: WebhookService,
   ) {
-    this.uniswapV2Trader = new UniswapV2Trader(wallet, chainConfig, tradeService, positionService, tokenService);
-    this.uniswapV3Trader = new UniswapV3Trader(wallet, chainConfig, tradeService, positionService, tokenService);
-    this.uniswapV4Trader = new UniswapV4Trader(wallet, chainConfig, tradeService, positionService, tokenService);
+    this.uniswapV2Trader = new UniswapV2Trader(
+      wallet,
+      chainConfig,
+      tradeService,
+      positionService,
+      tokenService,
+      webhookService,
+    );
+    this.uniswapV3Trader = new UniswapV3Trader(
+      wallet,
+      chainConfig,
+      tradeService,
+      positionService,
+      tokenService,
+      webhookService,
+    );
+    this.uniswapV4Trader = new UniswapV4Trader(
+      wallet,
+      chainConfig,
+      tradeService,
+      positionService,
+      tokenService,
+      webhookService,
+    );
   }
 
   async buy(token: SelectToken, erc20: ERC20, buyType: TradeType, usdAmount: number) {

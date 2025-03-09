@@ -15,6 +15,8 @@ tags:
     description: Token security validation operations
   - name: Token Monitoring
     description: Token monitoring operations
+  - name: Webhooks
+    description: Webhook subscription and management operations
 
 paths:
   # Token Discovery Manager
@@ -495,6 +497,267 @@ paths:
                     type: string
                     example: "Error monitoring token"
 
+  # Webhook Management Endpoints
+  /webhooks:
+    get:
+      summary: List webhook subscriptions
+      description: Returns all current webhook subscriptions
+      tags:
+        - Webhooks
+      responses:
+        "200":
+          description: List of current webhook subscriptions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscriptions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WebhookSubscription"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Error retrieving webhook subscriptions"
+    post:
+      summary: Create webhook subscription
+      description: Creates a new webhook subscription
+      tags:
+        - Webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+                - events
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  description: The URL to send webhook events to
+                  example: "https://example.com/webhook-handler"
+                events:
+                  type: array
+                  description: The events to subscribe to
+                  items:
+                    type: string
+                    enum: ["tokenUpdateHook", "priceUpdateHook", "liquidityUpdateHook", "tradeHook"]
+                  example: ["priceUpdateHook", "liquidityUpdateHook"]
+      responses:
+        "201":
+          description: Webhook subscription created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Webhook subscription created"
+                  subscription:
+                    $ref: "#/components/schemas/WebhookSubscription"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid webhook URL or events"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Error creating webhook subscription"
+
+  /webhooks/{id}:
+    delete:
+      summary: Delete webhook subscription
+      description: Deletes an existing webhook subscription
+      tags:
+        - Webhooks
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: The ID of the webhook subscription to delete
+      responses:
+        "200":
+          description: Webhook subscription deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Webhook subscription deleted"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Webhook ID is required"
+        "404":
+          description: Webhook subscription not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Webhook subscription not found"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Error deleting webhook subscription"
+
+webhooks:
+  # Token Update Webhooks
+  tokenUpdateHook:
+    post:
+      summary: Token data update webhook
+      description: Notifies the client when token data has been updated
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - event
+                - tokenAddress
+                - data
+              properties:
+                event:
+                  type: string
+                  enum: ["tokenUpdateHook"]
+                tokenAddress:
+                  type: string
+                  description: The token contract address
+                  example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+                data:
+                  $ref: "#/components/schemas/TokenDto"
+      responses:
+        "200":
+          description: Acknowledgement that the webhook was received
+
+  priceUpdateHook:
+    post:
+      summary: Price data update webhook
+      description: Notifies the client when price data has been updated
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - event
+                - tokenAddress
+                - priceUsd
+              properties:
+                event:
+                  type: string
+                  enum: ["priceUpdateHook"]
+                tokenAddress:
+                  type: string
+                  description: The token contract address
+                  example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+                priceUsd:
+                  type: string
+                  description: Current price in USD
+                  example: "1.25"
+      responses:
+        "200":
+          description: Acknowledgement that the webhook was received
+
+  liquidityUpdateHook:
+    post:
+      summary: Liquidity data update webhook
+      description: Notifies the client when liquidity data has been updated
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - event
+                - tokenAddress
+                - data
+              properties:
+                event:
+                  type: string
+                  enum: ["liquidityUpdateHook"]
+                tokenAddress:
+                  type: string
+                  description: The token contract address
+                  example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+                data:
+                  $ref: "#/components/schemas/LiquidityDto"
+      responses:
+        "200":
+          description: Acknowledgement that the webhook was received
+
+  tradeHook:
+    post:
+      summary: Trade update webhook
+      description: Notifies the client when a trade has been executed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - event
+                - tokenAddress
+                - data
+              properties:
+                event:
+                  type: string
+                  enum: ["tradeHook"]
+                tokenAddress:
+                  type: string
+                  description: The token contract address
+                  example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+                data:
+                  $ref: "#/components/schemas/TradeDto"
+      responses:
+        "200":
+          description: Acknowledgement that the webhook was received
+
 components:
   schemas:
     # Token Discovery
@@ -714,3 +977,24 @@ components:
         currentProfitLossUsd:
           type: number
           description: Current profit/loss in USD
+
+    # Webhooks
+    WebhookSubscription:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the webhook subscription
+        url:
+          type: string
+          format: uri
+          description: The URL where webhook events will be sent
+        events:
+          type: array
+          description: List of events this webhook is subscribed to
+          items:
+            type: string
+            enum: ["tokenUpdateHook", "priceUpdateHook", "liquidityUpdateHook", "tradeHook"]
+        createdAt:
+          type: integer
+          description: Unix timestamp (ms) when the webhook was created

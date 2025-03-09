@@ -69,7 +69,7 @@ export class V2PriceOracle implements IPriceOracle {
     const amountFormatted = ethers.formatUnits(amountOut.toString(), this.USDC_DECIMALS);
     return parseFloat(amountFormatted);
   }
-  async getTokenPriceUsdc(token: ERC20) {
+  async getTokenPriceUsdc(token: ERC20): Promise<number> {
     try {
       if (!this.isInitialized) throw new TechnicalError(`${this.NAME} not initialized`);
 
