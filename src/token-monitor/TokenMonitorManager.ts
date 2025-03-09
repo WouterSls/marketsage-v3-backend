@@ -168,7 +168,7 @@ export class TokenMonitorManager {
      *
      * Console.log usage should be replaced by a broadcast -> webhook
      */
-    const isRugpull = await this.liquidityCheckingService.rugpullCheck(token);
+    const { isRugpull } = await this.liquidityCheckingService.rugpullCheck(token);
     if (isRugpull) {
       console.log(`Rugpull detection | validated token ${token.name} is a rugpull`);
       await this.tokenService.updateToken(token.address, { status: "rugpull" });
