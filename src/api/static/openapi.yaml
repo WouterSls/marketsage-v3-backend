@@ -888,21 +888,6 @@ components:
               example: "1000000000000000000000000"
 
     # Token Monitoring
-    MonitoringStatistics:
-      type: object
-      properties:
-        activePositions:
-          type: number
-          description: Number of active positions
-        closedPositions:
-          type: number
-          description: Number of closed positions
-        profitablePositions:
-          type: number
-          description: Number of profitable positions
-        unprofitablePositions:
-          type: number
-          description: Number of unprofitable positions
     TokenDto:
       type: object
       properties:
