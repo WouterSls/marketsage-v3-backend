@@ -175,16 +175,15 @@ export class TokenMonitorManager {
     }
 
     const priceUsd = await this.priceCheckingService!.getTokenPriceUsd(token, erc20);
-    await this.webhookService!.broadcast("priceUpdateHook", {
-      tokenAddress: token.address,
-      priceUsd: priceUsd.toString(),
-    });
-
     const liquidity: AllProtocolsLiquidity = await this.liquidityCheckingService!.getLiquidity(tokenAddress);
     const liquidityDto: LiquidityDto = LiquidityMapper.toLiquidityDto(liquidity);
-    await this.webhookService!.broadcast("liquidityUpdateHook", {
+
+    await this.webhookService!.broadcast("priceUpdateHook", {
       tokenAddress: token.address,
-      data: liquidityDto,
+      data: {
+        priceUsd: priceUsd.toString(),
+        liquidity: liquidityDto,
+      },
     });
 
     const tradesToEvaulate: SelectTrade[] = await this.tradeService!.getBuyTradesForToken(tokenAddress);

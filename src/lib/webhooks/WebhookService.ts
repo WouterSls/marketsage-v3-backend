@@ -60,11 +60,13 @@ export class WebhookService {
 
         const response = await fetch(subscription.url, {
           method: "POST",
+          /** 
           headers: {
             "Content-Type": "application/json",
             "X-Webhook-Id": subscription.id,
             "X-Webhook-Timestamp": Date.now().toString(),
           },
+*/
           body: JSON.stringify({
             event: eventType,
             ...payload,

@@ -551,7 +551,7 @@ paths:
                   description: The events to subscribe to
                   items:
                     type: string
-                    enum: ["tokenUpdateHook", "priceUpdateHook", "liquidityUpdateHook", "tradeHook"]
+                    enum: ["tokenUpdateHook", "tradeReceiveHook", "priceUpdateHook"]
                   example: ["priceUpdateHook", "liquidityUpdateHook"]
       responses:
         "201":
@@ -586,7 +586,12 @@ paths:
                   message:
                     type: string
                     example: "Error creating webhook subscription"
-
+  /webhooks/test:
+    post:
+      summary: Broadcast webhook test
+      description: Broadcasts a test webhook to all subscribed webhooks
+      tags:
+        - Webhooks
   /webhooks/{id}:
     delete:
       summary: Delete webhook subscription
@@ -979,7 +984,7 @@ components:
           description: List of events this webhook is subscribed to
           items:
             type: string
-            enum: ["tokenUpdateHook", "priceUpdateHook", "liquidityUpdateHook", "tradeHook"]
+            enum: ["tokenUpdateHook", "tradeReceiveHook", "priceUpdateHook"]
         createdAt:
           type: integer
           description: Unix timestamp (ms) when the webhook was created

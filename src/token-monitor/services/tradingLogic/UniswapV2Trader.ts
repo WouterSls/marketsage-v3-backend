@@ -53,7 +53,7 @@ export class UniswapV2Trader implements ITrader {
         const tradeDto: TradeDto = TradeMapper.toTradeDto(trade);
         const tokenDto: TokenDto = TokenMapper.toTokenDto(updatedToken);
 
-        await this.webhookService.broadcast("tradeHook", {
+        await this.webhookService.broadcast("tradeReceiveHook", {
           tokenAddress: token.address,
           data: tradeDto,
         });
@@ -118,7 +118,7 @@ export class UniswapV2Trader implements ITrader {
 
         const trade = await this.tradeService.createTrade(tokenAddress, tokenName, status, tradeType, tradeSuccessInfo);
         const tradeDto: TradeDto = TradeMapper.toTradeDto(trade);
-        await this.webhookService.broadcast("tradeHook", {
+        await this.webhookService.broadcast("tradeReceiveHook", {
           tokenAddress: token.address,
           data: tradeDto,
         });
