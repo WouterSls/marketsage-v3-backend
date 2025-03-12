@@ -551,8 +551,8 @@ paths:
                   description: The events to subscribe to
                   items:
                     type: string
-                    enum: ["tokenUpdateHook", "tradeReceiveHook", "priceUpdateHook"]
-                  example: ["priceUpdateHook", "liquidityUpdateHook"]
+                    enum: ["tokenUpdateHook", "priceUpdateHook", "tradeReceiveHook"]
+                  example: ["priceUpdateHook", "tradeReceiveHook"]
       responses:
         "201":
           description: Webhook subscription created
@@ -589,9 +589,30 @@ paths:
   /webhooks/test:
     post:
       summary: Broadcast webhook test
-      description: Broadcasts a test webhook to all subscribed webhooks
+      description: Broadcasts a test token update webhook to all subscribed webhooks
       tags:
         - Webhooks
+      responses:
+        "200":
+          description: Test webhook broadcasted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Webhook test broadcasted"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Error broadcasting webhook test"
   /webhooks/{id}:
     delete:
       summary: Delete webhook subscription
@@ -676,7 +697,6 @@ webhooks:
       responses:
         "200":
           description: Acknowledgement that the webhook was received
-
   priceUpdateHook:
     post:
       summary: Price data update webhook
@@ -690,7 +710,7 @@ webhooks:
               required:
                 - event
                 - tokenAddress
-                - priceUsd
+                - data
               properties:
                 event:
                   type: string
@@ -699,43 +719,19 @@ webhooks:
                   type: string
                   description: The token contract address
                   example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
-                priceUsd:
-                  type: string
-                  description: Current price in USD
-                  example: "1.25"
-      responses:
-        "200":
-          description: Acknowledgement that the webhook was received
-
-  liquidityUpdateHook:
-    post:
-      summary: Liquidity data update webhook
-      description: Notifies the client when liquidity data has been updated
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - event
-                - tokenAddress
-                - data
-              properties:
-                event:
-                  type: string
-                  enum: ["liquidityUpdateHook"]
-                tokenAddress:
-                  type: string
-                  description: The token contract address
-                  example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
                 data:
-                  $ref: "#/components/schemas/LiquidityDto"
+                  type: object
+                  properties:
+                    priceUsd:
+                      type: string
+                      description: Current price in USD
+                      example: "1.25"
+                    liquidity:
+                      $ref: "#/components/schemas/LiquidityDto"
       responses:
         "200":
           description: Acknowledgement that the webhook was received
-
-  tradeHook:
+  tradeReceiveHook:
     post:
       summary: Trade update webhook
       description: Notifies the client when a trade has been executed
@@ -752,7 +748,7 @@ webhooks:
               properties:
                 event:
                   type: string
-                  enum: ["tradeHook"]
+                  enum: ["tradeReceiveHook"]
                 tokenAddress:
                   type: string
                   description: The token contract address
@@ -984,7 +980,7 @@ components:
           description: List of events this webhook is subscribed to
           items:
             type: string
-            enum: ["tokenUpdateHook", "tradeReceiveHook", "priceUpdateHook"]
+            enum: ["tokenUpdateHook", "priceUpdateHook", "tradeReceiveHook"]
         createdAt:
           type: integer
           description: Unix timestamp (ms) when the webhook was created
