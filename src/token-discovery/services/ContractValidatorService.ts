@@ -40,7 +40,7 @@ export class ContractValidatorService {
         return { isVerified: true, isValid: false };
       }
 
-      console.log(`Token functions: ${JSON.stringify(functionNames, null, 2)}`);
+      console.log("Token functions: ", functionNames);
 
       const { isValid } = await this.basicContractValidation(address, functionNames);
       if (!isValid) {
