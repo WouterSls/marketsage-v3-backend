@@ -772,12 +772,15 @@ components:
           contractsDiscovered:
             type: number
             description: Number of contracts discovered
+          invalidContracts:
+            type: number
+            description: Number of invalid contracts
+          validContracts:
+            type: number
+            description: Number of valid contracts
           reverifyableContracts:
             type: number
             description: Number of reverifyable contracts
-          tokensValidated:
-            type: number
-            description: Number of tokens validated
           lastScannedBlock:
             type: number
             description: Last scanned block

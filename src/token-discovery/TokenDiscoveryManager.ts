@@ -1,6 +1,5 @@
 import { Provider } from "ethers";
 
-import { ValidationResult } from "./models/contract-validator.types";
 import { ContractValidatorService } from "./services/ContractValidatorService";
 import { BlockEventPoller } from "./services/BlockEventPoller";
 
@@ -9,6 +8,7 @@ import { DISCOVERY_CONFIG } from "./config/discovery-config";
 import { TokenDiscoveryManagerError } from "../lib/errors/TokenDiscoveryManagerError";
 import { TokenSecurityValidator } from "../token-security-validator/TokenSecurityValidator";
 import { TokenDiscoveryInfo } from "./models/token-discovery.types";
+import { sleep } from "../lib/utils/helper-functions";
 
 export class TokenDiscoveryManager {
   private static instance: TokenDiscoveryManager;
@@ -24,8 +24,9 @@ export class TokenDiscoveryManager {
   private statistics: TokenDiscoveryInfo["statistics"] = {
     blocksScanned: 0,
     contractsDiscovered: 0,
+    invalidContracts: 0,
+    validContracts: 0,
     reverifyableContracts: 0,
-    tokensValidated: 0,
     lastScannedBlock: 0,
   };
 
@@ -84,12 +85,7 @@ export class TokenDiscoveryManager {
     try {
       this.isRunning = true;
 
-      await this.scanBlocks();
-
-      this.scanInterval = setInterval(
-        () => this.scanBlocks().catch((err) => console.error("Error during scheduled scan", err)),
-        DISCOVERY_CONFIG.scanIntervalMs,
-      );
+      this.scanBlocks();
 
       console.log("Token Discovery service started successfully");
     } catch (error) {
@@ -100,24 +96,26 @@ export class TokenDiscoveryManager {
   }
 
   async stop(): Promise<void> {
+    console.log("Stopping Token Discovery service");
+
     if (!this.isRunning) {
-      console.log("Token Discovery already stopped");
+      console.log("Token Discovery service not running");
       return;
     }
 
-    console.log("Stopping Token Discovery service");
-
     try {
-      if (this.scanInterval) {
-        clearInterval(this.scanInterval);
-        this.scanInterval = null;
-      }
-
       this.isRunning = false;
+
+      // Additional cleanup could go here
+
       console.log("Token Discovery service stopped successfully");
     } catch (error) {
-      console.error("Failed to stop Token Discovery service", error);
-      throw error;
+      console.error("Error stopping Token Discovery service:", error);
+      // Still mark as not running even if cleanup fails
+      this.isRunning = false;
+      throw new TokenDiscoveryManagerError(
+        `Failed to stop service: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
   }
 
@@ -126,31 +124,46 @@ export class TokenDiscoveryManager {
       throw new TokenDiscoveryManagerError("Contract validator not initialized");
     }
 
-    for (const address of this.revirableContractAddresses) {
-      const validationResult: ValidationResult = await this.contractValidator.validateContract(address);
+    const addressesToRetry = [...this.revirableContractAddresses]; // Create a copy to avoid modifying during iteration
+    let successCount = 0;
+    let failureCount = 0;
 
-      if (validationResult.isValid) {
-        const address = validationResult.address;
-        const creatorAddress = validationResult.creatorAddress;
+    for (const address of addressesToRetry) {
+      try {
+        const { isValid, isVerified, creatorAddress } = await this.contractValidator.validateContract(address);
 
-        if (!address || address === "" || address.trim() === "") {
-          throw new TokenDiscoveryManagerError("Invalid address");
+        if (isVerified && isValid) {
+          try {
+            this.validateAddresses(address, creatorAddress);
+            await TokenSecurityValidator.getInstance().addNewToken({
+              address,
+              creatorAddress: creatorAddress!,
+            });
+            this.statistics.validContracts++;
+            successCount++;
+          } catch (validationError) {
+            console.error(`Error validating contract ${address}:`, validationError);
+            failureCount++;
+            continue; // Continue with next address even if this one fails
+          }
         }
 
-        if (!creatorAddress || creatorAddress === "" || creatorAddress.trim() === "") {
-          throw new TokenDiscoveryManagerError("Invalid creator address");
+        // Remove from the retry list regardless of outcome
+        this.statistics.reverifyableContracts--;
+        const index = this.revirableContractAddresses.indexOf(address);
+        if (index !== -1) {
+          this.revirableContractAddresses.splice(index, 1);
         }
-
-        await TokenSecurityValidator.getInstance().addNewToken({
-          address,
-          creatorAddress,
-        });
-        this.statistics.tokensValidated++;
+      } catch (error) {
+        console.error(`Error retrying verification for contract ${address}:`, error);
+        failureCount++;
+        // Don't remove from retry list if verification attempt failed due to error
       }
-
-      this.statistics.reverifyableContracts--;
-      this.revirableContractAddresses.splice(this.revirableContractAddresses.indexOf(address), 1);
     }
+
+    console.log(
+      `Retry verification completed: ${successCount} succeeded, ${failureCount} failed, ${this.revirableContractAddresses.length} remaining for retry`,
+    );
   }
 
   private async scanBlocks(): Promise<void> {
@@ -158,25 +171,36 @@ export class TokenDiscoveryManager {
       throw new TokenDiscoveryManagerError("Token Discovery components not initialized");
     }
 
-    try {
-      const currentBlock = await this.blockEventPoller.getCurrentBlockNumber();
+    while (this.isRunning) {
+      try {
+        const currentBlock = await this.blockEventPoller.getCurrentBlockNumber();
 
-      if (currentBlock <= this.lastScannedBlock) {
-        console.debug("No new blocks to scan");
-        return;
+        if (currentBlock <= this.lastScannedBlock) {
+          console.debug("No new blocks to scan");
+          await sleep(DISCOVERY_CONFIG.scanIntervalSeconds);
+          continue;
+        }
+
+        for (let blockNumber = this.lastScannedBlock + 1; blockNumber <= currentBlock; blockNumber++) {
+          try {
+            console.log(`Processing block ${blockNumber}`);
+            await this.processBlock(blockNumber);
+
+            this.statistics.blocksScanned++;
+            this.statistics.lastScannedBlock = blockNumber;
+            this.lastScannedBlock = blockNumber;
+          } catch (blockError: unknown) {
+            const errorMessage = blockError instanceof Error ? blockError.message : "Unknown error";
+            console.error(`Error processing block ${blockNumber}`, errorMessage);
+          }
+        }
+
+        await sleep(DISCOVERY_CONFIG.scanIntervalSeconds);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        console.error("Error during block scanning", errorMessage);
+        await sleep(DISCOVERY_CONFIG.scanIntervalSeconds * 2);
       }
-
-      for (let blockNumber = this.lastScannedBlock + 1; blockNumber <= currentBlock; blockNumber++) {
-        console.log(`Processing block ${blockNumber}`);
-        await this.processBlock(blockNumber);
-
-        this.statistics.blocksScanned++;
-        this.statistics.lastScannedBlock = blockNumber;
-        this.lastScannedBlock = blockNumber;
-      }
-    } catch (error) {
-      console.error("Error during block scanning", error);
-      throw error;
     }
   }
 
@@ -196,32 +220,39 @@ export class TokenDiscoveryManager {
       this.statistics.contractsDiscovered += contractAddresses.length;
 
       for (const address of contractAddresses) {
-        const validationResult: ValidationResult = await this.contractValidator.validateContract(address);
+        const { isValid, isVerified, creatorAddress } = await this.contractValidator.validateContract(address);
 
-        if (validationResult.isValid) {
-          const address = validationResult.address;
-          const creatorAddress = validationResult.creatorAddress;
-
-          if (!address || address === "" || address.trim() === "") {
-            throw new TokenDiscoveryManagerError("Invalid address");
-          }
-
-          if (!creatorAddress || creatorAddress === "" || creatorAddress.trim() === "") {
-            throw new TokenDiscoveryManagerError("Invalid creator address");
-          }
-
-          await TokenSecurityValidator.getInstance().addNewToken({
-            address,
-            creatorAddress,
-          });
-          this.statistics.tokensValidated++;
-        } else {
+        if (!isVerified) {
           this.statistics.reverifyableContracts++;
           this.revirableContractAddresses.push(address);
+          continue;
         }
+
+        if (!isValid) {
+          this.statistics.invalidContracts++;
+          continue;
+        }
+
+        this.validateAddresses(address, creatorAddress);
+
+        await TokenSecurityValidator.getInstance().addNewToken({
+          address,
+          creatorAddress: creatorAddress!,
+        });
+        this.statistics.validContracts++;
       }
     } catch (error) {
       console.error(`Error processing block ${blockNumber}`, error);
+    }
+  }
+
+  private validateAddresses(contractAddress: string, creatorAddress: string | undefined): void {
+    if (!contractAddress || contractAddress === "" || contractAddress.trim() === "") {
+      throw new TokenDiscoveryManagerError("Invalid contract address");
+    }
+
+    if (!creatorAddress || creatorAddress === "" || creatorAddress.trim() === "") {
+      throw new TokenDiscoveryManagerError("Invalid creator address");
     }
   }
 }

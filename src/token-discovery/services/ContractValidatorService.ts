@@ -30,64 +30,69 @@ export class ContractValidatorService {
 
   public async validateContract(address: string): Promise<ValidationResult> {
     try {
-      const verificationResult = await this.blockExplorerClient.getVerifiedAbi(address);
-
-      if (!verificationResult.isVerified) {
-        console.log(`Contract at ${address} is not verified, skipping`);
-        return { isValid: false };
+      const { isVerified, functionNames } = await this.blockExplorerClient.getVerifiedAbi(address);
+      if (!isVerified) {
+        return { isVerified: false, isValid: false };
       }
 
-      if (!this.hasMinimalERC20Functions(verificationResult.functionNames)) {
-        console.log(`Contract at ${address} is not a minimal ERC20`);
-        return { isValid: false };
+      const { isMinimalERC20 } = this.hasMinimalERC20Functions(functionNames);
+      if (!isMinimalERC20) {
+        return { isVerified: true, isValid: false };
       }
 
-      console.log("Token functions: ", verificationResult.functionNames);
+      console.log(`Token functions: ${JSON.stringify(functionNames, null, 2)}`);
 
-      try {
-        const token = new ethers.Contract(address, MINIMAL_ERC20_ABI, this.provider);
-        const name = await token.name();
-
-        const isRiskyContract = await this.contractValidation(name, verificationResult.functionNames);
-        if (isRiskyContract) {
-          console.log(`${name} (${address}) - is a risky contract`);
-          return { isValid: false };
-        }
-
-        const creatorAddress = await this.blockExplorerClient.getContractCreator(address);
-
-        console.log(`Validated ERC20 token: ${name} (${address})`);
-        return { isValid: true, address, creatorAddress };
-      } catch (error) {
-        console.error(`Failed to create ERC20 instance for ${address}`, error);
-        return { isValid: false };
+      const { isValid } = await this.basicContractValidation(address, functionNames);
+      if (!isValid) {
+        return { isVerified: true, isValid: false };
       }
+
+      const creatorAddress = await this.blockExplorerClient.getContractCreator(address);
+
+      return { isVerified: true, isValid: true, creatorAddress };
     } catch (error) {
       console.error(`Error validating contract ${address}`, error);
+      return { isVerified: false, isValid: false };
+    }
+  }
+
+  private hasMinimalERC20Functions(functionNames: string[]): { isMinimalERC20: boolean } {
+    const requiredFunctions = ["name", "symbol", "decimals", "totalSupply", "balanceOf", "transfer"];
+    const isMinimalERC20 = requiredFunctions.every((func) => functionNames.includes(func));
+    return { isMinimalERC20 };
+  }
+
+  private async basicContractValidation(address: string, functionNames: string[]): Promise<{ isValid: boolean }> {
+    try {
+      const token = new ethers.Contract(address, MINIMAL_ERC20_ABI, this.provider);
+      const name = await token.name();
+
+      const isRiskyContract = await this.riskyContractValidation(name, functionNames);
+      if (isRiskyContract) {
+        console.log(`${name} (${address}) - is a risky contract`);
+        return { isValid: false };
+      }
+
+      console.log(`Token name: ${name}`);
+      return { isValid: true };
+    } catch (error) {
+      console.error(`Failed to create ERC20 instance for ${address}`, error);
       return { isValid: false };
     }
   }
 
-  private hasMinimalERC20Functions(functionNames: string[]): boolean {
-    const requiredFunctions = ["name", "symbol", "decimals", "totalSupply", "balanceOf", "transfer"];
-    return requiredFunctions.every((func) => functionNames.includes(func));
-  }
-
   /**
    *
-   *  BASIC CONTRACT CHECK
+   * RISKY CONTRACT VALIDATION
    *
    */
-  private async contractValidation(tokenName: string, functionNames: string[]): Promise<boolean> {
-    const functionCheckResult = this.checkContractFunctions(functionNames);
-    const isRiskyName = this.checkContractName(tokenName);
-    return functionCheckResult.isHoneypot || isRiskyName;
-  }
+  private async riskyContractValidation(tokenName: string, functionNames: string[]): Promise<boolean> {
+    const functionCheckResult: SecurityCheckResult = this.checkContractFunctions(functionNames);
+    const isRiskyContract = this.evaluateHoneypotRisk(functionCheckResult.riskFactors);
 
-  private checkContractName(tokenName: string): boolean {
-    //TODO: add suspicious token db integration | async?
-    const hasSuspiciousName = SUSPICIOUS_NAMES.some((name) => tokenName.toLowerCase().includes(name));
-    return hasSuspiciousName;
+    const isRiskyName = this.checkContractName(tokenName);
+
+    return isRiskyContract || isRiskyName;
   }
 
   private checkContractFunctions(functionNames: string[]): SecurityCheckResult {
@@ -148,13 +153,6 @@ export class ContractValidatorService {
 
     return result;
   }
-
-  private findMatchingFunctions(functionNames: string[], patterns: readonly string[]): string[] {
-    return functionNames.filter((name) =>
-      patterns.some((pattern) => name.toLowerCase().includes(pattern.toLowerCase())),
-    );
-  }
-
   private evaluateHoneypotRisk(riskFactors: SecurityCheckResult["riskFactors"]): boolean {
     let riskScore = 0;
 
@@ -172,5 +170,17 @@ export class ContractValidatorService {
 
     // Consider it a likely honeypot if risk score is high enough
     return riskScore >= 6;
+  }
+
+  private checkContractName(tokenName: string): boolean {
+    //TODO: add suspicious token db integration | async?
+    const hasSuspiciousName = SUSPICIOUS_NAMES.some((name) => tokenName.toLowerCase().includes(name));
+    return hasSuspiciousName;
+  }
+
+  private findMatchingFunctions(functionNames: string[], patterns: readonly string[]): string[] {
+    return functionNames.filter((name) =>
+      patterns.some((pattern) => name.toLowerCase().includes(pattern.toLowerCase())),
+    );
   }
 }

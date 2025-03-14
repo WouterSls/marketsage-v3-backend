@@ -1,6 +1,6 @@
 export interface ValidationResult {
+  isVerified: boolean;
   isValid: boolean;
-  address?: string;
   creatorAddress?: string;
 }
 

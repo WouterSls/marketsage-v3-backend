@@ -3,8 +3,9 @@ export type TokenDiscoveryInfo = {
   statistics: {
     blocksScanned: number;
     contractsDiscovered: number;
+    invalidContracts: number;
+    validContracts: number;
     reverifyableContracts: number;
-    tokensValidated: number;
     lastScannedBlock: number;
   };
 };

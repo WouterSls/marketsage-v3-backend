@@ -1,3 +1,3 @@
 export const DISCOVERY_CONFIG = {
-  scanIntervalMs: 5000,
+  scanIntervalSeconds: 5,
 };
