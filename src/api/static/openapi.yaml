@@ -904,6 +904,10 @@ components:
         creatorAddress:
           type: string
           description: Token creator address
+        status:
+          type: string
+          enum: ["buyable", "sold", "honeypot", "rugpull", "archived"]
+          description: Token status
         isSuspicious:
           type: boolean
           description: Whether the token is suspicious

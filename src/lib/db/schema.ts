@@ -6,6 +6,7 @@ export type TokenStatus =
   | "sold"
   // archived
   | "rugpull"
+  | "honeypot"
   | "archived";
 export type DexType = "uniswapv2" | "uniswapv3" | "uniswapv4" | "aerodrome" | "balancer" | null;
 
@@ -23,6 +24,7 @@ export const token = sqliteTable("token", {
       "sold",
       // archived
       "rugpull",
+      "honeypot",
       "archived",
     ],
   }).notNull(),

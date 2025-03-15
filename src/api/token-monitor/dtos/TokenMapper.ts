@@ -7,6 +7,7 @@ export class TokenMapper {
       name: token.name,
       address: token.address,
       creatorAddress: token.creatorAddress,
+      status: token.status,
       isSuspicious: token.isSuspicious,
       discoveredAt: token.discoveredAt,
     };
