@@ -19,3 +19,6 @@ export {
 
 // Export contract ABIs
 export * from "./contract-abis/contract-abis";
+
+// Export trading strategies
+export { TradingStrategyFactory } from "./trading/TradingStrategyFactory";
