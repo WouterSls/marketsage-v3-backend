@@ -16,7 +16,6 @@ export type DEX = DexType;
 
 export type TokenSecurityValidatorStatistics = {
   activeTokenCount: number;
-  honeypotCount: number;
   rugpullCount: number;
   tokensCreated: number;
 };

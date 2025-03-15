@@ -22,7 +22,6 @@ export class TokenSecurityValidator {
 
   private activeTokens: Map<string, ActiveToken> = new Map();
   private statistics = {
-    honeypotCount: 0,
     rugpullCount: 0,
     tokensCreated: 0,
   };
@@ -66,7 +65,6 @@ export class TokenSecurityValidator {
   getStatistics(): TokenSecurityValidatorStatistics {
     const statistics: TokenSecurityValidatorStatistics = {
       activeTokenCount: this.activeTokens.size,
-      honeypotCount: this.statistics.honeypotCount,
       rugpullCount: this.statistics.rugpullCount,
       tokensCreated: this.statistics.tokensCreated,
     };

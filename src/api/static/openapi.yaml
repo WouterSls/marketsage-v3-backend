@@ -792,9 +792,6 @@ components:
         activeTokenCount:
           type: number
           description: Number of active tokens
-        honeypotCount:
-          type: number
-          description: Number of honeypots
         rugpullCount:
           type: number
           description: Number of rugpulls
@@ -868,9 +865,6 @@ components:
           type: number
           description: Timestamp when the token validation expires (in milliseconds)
           example: 1698513000000
-        hasBalance:
-          type: boolean
-          description: Whether the token has balance
         hasLiquidity:
           type: boolean
           description: Whether the token has liquidity
