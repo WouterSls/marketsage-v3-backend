@@ -7,29 +7,23 @@ import { ChainConfig } from "../../lib/blockchain/config/chain-config";
 import { HoneypotError } from "../../lib/errors/HoneypotError";
 import { sleep } from "../../lib/utils/helper-functions";
 
-import { UniswapV2Router } from "../../lib/blockchain/models/UniswapV2Router";
-import { approveTokenSpending } from "../../lib/blockchain/utils/blockchain-utils";
+import { ERC20, TradingStrategyFactory } from "../../lib/blockchain/index";
+import { SelectToken } from "../../db";
 
 export class HoneypotCheckingService {
-  private uniswapV2Router: UniswapV2Router;
-  private wallet: Wallet;
+  constructor(
+    private wallet: Wallet,
+    private chainConfig: ChainConfig,
+  ) {}
 
-  constructor(wallet: Wallet, chainConfig: ChainConfig) {
-    this.uniswapV2Router = new UniswapV2Router(wallet, chainConfig);
-    this.wallet = wallet;
-  }
-
-  async honeypotCheck(token: ActiveToken) {
+  async honeypotCheck(token: SelectToken, erc20: ERC20) {
     try {
-      if (!token.hasBalance) {
-        await this.testBuying(token);
-      }
+      await this.testBuy(token, erc20);
 
-      if (token.hasBalance) {
-        await sleep(15);
-        await this.validateBalance(token);
-        await this.testSelling(token);
-      }
+      await sleep(15);
+      await this.validateBalance(erc20);
+
+      await this.testSell(token, erc20);
 
       return {
         isHoneypot: false,
@@ -46,122 +40,33 @@ export class HoneypotCheckingService {
     }
   }
 
-  private async testBuying(token: ActiveToken) {
-    switch (token.protocol) {
-      case "uniswapv2":
-        await this.testBuyV2(token);
-        break;
-      case "uniswapv3":
-        await this.testBuyV3(token);
-        break;
-      case "uniswapv4":
-        await this.testBuyV4(token);
-        break;
-      case "aerodrome":
-        await this.testBuyAerodrome(token);
-        break;
-    }
-  }
-  private async testBuyV2(token: ActiveToken) {
-    const maxRetries = 2;
-    let attempts = 0;
-    let lastError: any;
-
-    while (attempts <= maxRetries) {
-      try {
-        console.log(`Starting V2 test buy... (Attempt ${attempts + 1}/${maxRetries + 1})`);
-        const erc20 = token.erc20;
-        const buyAmount = SECURITY_VALIDATOR_CONFIG.USD_TEST_AMOUNT;
-        const tradeSuccessInfo = await this.uniswapV2Router.swapEthInUsdForToken(erc20, buyAmount);
-        token.hasBalance = true;
-        console.log(`V2 test buy successful | tx: ${tradeSuccessInfo.transactionHash}`);
-        return;
-      } catch (error) {
-        lastError = error;
-        console.log(`V2 test buy failed (Attempt ${attempts + 1}/${maxRetries + 1})`);
-        console.log(error);
-
-        if (attempts < maxRetries) {
-          const delaySeconds = 3;
-          console.log(`Retrying in ${delaySeconds} seconds...`);
-          await sleep(delaySeconds);
-        }
-      }
-      attempts++;
-    }
-
-    throw new HoneypotError(
-      `V2 test buy failed after ${maxRetries + 1} attempts: ${lastError?.message || "Unknown error"}`,
-    );
-  }
-  private async testBuyV3(token: ActiveToken) {
-    console.log("Starting V3 test buy...");
-    throw new HoneypotError("Not implemented");
-  }
-  private async testBuyV4(token: ActiveToken) {
-    console.log("Starting V4 test buy...");
-    throw new HoneypotError("Not implemented");
-  }
-  private async testBuyAerodrome(token: ActiveToken) {
-    console.log("Starting Aerodrome test buy...");
-    throw new HoneypotError("Not implemented");
-  }
-
-  private async testSelling(token: ActiveToken) {
-    switch (token.protocol) {
-      case "uniswapv2":
-        await this.testSellV2(token);
-        break;
-      case "uniswapv3":
-        await this.testSellV3(token);
-        break;
-      case "uniswapv4":
-        await this.testSellV4(token);
-        break;
-      case "aerodrome":
-        await this.testSellAerodrome(token);
-    }
-  }
-  private async testSellV2(token: ActiveToken) {
+  private async testBuy(token: SelectToken, erc20: ERC20) {
     try {
-      console.log("Starting V2 sell simulation...");
-      const erc20 = token.erc20;
-      const allowance = await erc20.getAllowance(this.wallet.address, this.uniswapV2Router.getRouterAddress());
-      const balance = await erc20.getRawTokenBalance(this.wallet.address);
+      const buyAmount = SECURITY_VALIDATOR_CONFIG.USD_TEST_AMOUNT;
+      const tradeType = "usdValue";
 
-      if (allowance < balance) {
-        const balanceFormatted = await erc20.getTokenBalance(this.wallet.address);
-        console.log(`Allowance: ${allowance} | Balance: ${balanceFormatted}`);
-        const approveAmount = (balance * 105n) / 100n;
-        console.log("Approving...");
-        await approveTokenSpending(this.wallet, erc20, this.uniswapV2Router.getRouterAddress(), approveAmount);
-        console.log("Approved");
-      }
+      const tradingStrategy = TradingStrategyFactory.createStrategy(token.dex, this.wallet, this.chainConfig);
 
-      await this.uniswapV2Router!.simulateSellSwap(erc20, balance);
-
-      console.log(`V2 sell simulation successful`);
+      await tradingStrategy.buy(token, erc20, buyAmount, tradeType);
     } catch (error) {
-      console.log("V2 sell simulation failed");
       console.log(error);
-      throw new HoneypotError("V2 sell simulation failed");
+      throw new HoneypotError(`Test buy failed: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   }
-  private async testSellV3(token: ActiveToken) {
-    console.log("Starting V3 test sell...");
-    throw new HoneypotError("Not implemented");
-  }
-  private async testSellV4(token: ActiveToken) {
-    console.log("Starting V4 test sell...");
-    throw new HoneypotError("Not implemented");
-  }
-  private async testSellAerodrome(token: ActiveToken) {
-    console.log("Starting Aerodrome test sell...");
-    throw new HoneypotError("Not implemented");
+
+  private async testSell(token: SelectToken, erc20: ERC20) {
+    try {
+      const tradingStrategy = TradingStrategyFactory.createStrategy(token.dex, this.wallet, this.chainConfig);
+
+      const balance = await erc20.getTokenBalance(this.wallet.address);
+      await tradingStrategy.testSell(erc20, balance);
+    } catch (error) {
+      console.log(error);
+      throw new HoneypotError(`Sell simulation failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }
   }
 
-  private async validateBalance(token: ActiveToken) {
-    const erc20 = token.erc20;
+  private async validateBalance(erc20: ERC20) {
     const balance = await erc20.getRawTokenBalance(this.wallet.address);
     if (balance <= 0n) {
       throw new HoneypotError("No tokens received");

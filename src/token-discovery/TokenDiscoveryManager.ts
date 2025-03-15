@@ -18,7 +18,6 @@ export class TokenDiscoveryManager {
   private blockEventPoller: BlockEventPoller | null = null;
   private contractValidator: ContractValidatorService | null = null;
 
-  private scanInterval: NodeJS.Timeout | null = null;
   private lastScannedBlock = 0;
 
   private statistics: TokenDiscoveryInfo["statistics"] = {

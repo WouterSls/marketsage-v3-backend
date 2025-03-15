@@ -33,11 +33,7 @@ export class WebhookController {
         return;
       }
 
-      const validEventTypes: WebhookEventType[] = [
-        "tokenUpdateHook",
-        "priceUpdateHook",
-        "tradeReceiveHook",
-      ];
+      const validEventTypes: WebhookEventType[] = ["tokenUpdateHook", "priceUpdateHook", "tradeReceiveHook"];
       const allEventsValid = events.every((event) => validEventTypes.includes(event as WebhookEventType));
       if (!allEventsValid) {
         res.status(400).json({ message: "Invalid event type(s)" });
@@ -82,15 +78,19 @@ export class WebhookController {
   static async broadcastTestTokenUpdate(req: Request, res: Response): Promise<void> {
     try {
       console.log("Broadcasting test token update");
-      const tokenDto: TokenDto = {  
+      const tokenDto: TokenDto = {
         address: "0x0000000000000000000000000000000000000000",
         name: "Test Token",
+        status: "honeypot",
         creatorAddress: "0x0000000000000000000000000000000000000000",
         isSuspicious: false,
         discoveredAt: Date.now(),
       };
 
-      await WebhookController.webhookService.broadcast("tokenUpdateHook", { tokenAddress: "0x0000000000000000000000000000000000000000", data: tokenDto });
+      await WebhookController.webhookService.broadcast("tokenUpdateHook", {
+        tokenAddress: "0x0000000000000000000000000000000000000000",
+        data: tokenDto,
+      });
 
       res.status(200).json({ message: "Webhook test broadcasted" });
     } catch (error: unknown) {

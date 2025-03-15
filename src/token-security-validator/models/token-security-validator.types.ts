@@ -6,7 +6,6 @@ export interface ActiveToken {
   creatorAddress: string;
   addedAt: number;
   expiresAt: number;
-  hasBalance: boolean;
   hasLiquidity: boolean;
   protocol: DEX;
   erc20: ERC20;

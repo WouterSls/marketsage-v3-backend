@@ -110,7 +110,6 @@ export class TokenSecurityValidator {
         creatorAddress: token.creatorAddress,
         addedAt: addedAt,
         expiresAt: addedAt + SECURITY_VALIDATOR_CONFIG.TOKEN_ACTIVE_DURATION_MS,
-        hasBalance: false,
         hasLiquidity: false,
         protocol: null,
         erc20: erc20,
@@ -150,31 +149,19 @@ export class TokenSecurityValidator {
 
       console.log(`\nStarting Liquidity Detection for ${activeToken.erc20.getName()}...`);
       console.log("--------------------------------");
-      const liquidityCheckResult = await this.liquidityCheckingService!.validateInitialLiquidity(activeToken);
-      if (!liquidityCheckResult.hasLiquidity) {
+      const { hasLiquidity } = await this.liquidityCheckingService!.validateInitialLiquidity(activeToken);
+      if (!hasLiquidity) {
         console.log(`No initial liquidity found`);
         return;
       }
 
       console.log("Initial liquidity found, waiting for 90 seconds to check for instant rugpull...");
       await sleep(90);
-      const rugpullCheckResult = await this.liquidityCheckingService!.rugpullCheck(activeToken);
-      if (rugpullCheckResult.isRugpull) {
+      const { isRugpull } = await this.liquidityCheckingService!.rugpullCheck(activeToken);
+      if (isRugpull) {
         console.log("Rugpull detected for token: ", activeToken.erc20.getName());
         this.activeTokens.delete(tokenAddress);
         this.statistics.rugpullCount++;
-        return;
-      }
-
-      console.log(`\nStarting Honeypot Detection for ${activeToken.erc20.getName()}...`);
-      console.log("--------------------------------");
-      const honeypotCheckResult = await this.honeypotCheckingService!.honeypotCheck(activeToken);
-      if (honeypotCheckResult.isHoneypot) {
-        console.log(
-          `Honeypot detected for token: ${activeToken.erc20.getName()} | reason: ${honeypotCheckResult.reason}`,
-        );
-        this.activeTokens.delete(tokenAddress);
-        this.statistics.honeypotCount++;
         return;
       }
 
