@@ -82,6 +82,8 @@ export class TokenDiscoveryManager {
     console.log("Starting Token Discovery service");
 
     try {
+      this.lastScannedBlock = await this.blockEventPoller!.getCurrentBlockNumber();
+
       this.isRunning = true;
 
       this.scanBlocks();
