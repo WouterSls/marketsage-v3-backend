@@ -1,7 +1,7 @@
-import { TokenDto, TradeDto } from "../../api/token-monitor/dtos/index";
-import { LiquidityDto } from "../../api/token-security-validator/dtos/LiquidityDto";
+import { TokenDto, TradeDto } from "../../api/token-monitor/index";
+import { LiquidityDto } from "../../api/token-security-validator/index";
 
-export type WebhookEventType = "tokenUpdateHook" | "priceUpdateHook" |  "tradeReceiveHook" 
+export type WebhookEventType = "tokenUpdateHook" | "priceUpdateHook" | "tradeReceiveHook";
 
 interface TokenUpdatePayload {
   tokenAddress: string;
@@ -13,7 +13,7 @@ interface PriceUpdatePayload {
   data: {
     priceUsd: string;
     liquidity: LiquidityDto;
-  } 
+  };
 }
 
 interface TradeReceivePayload {

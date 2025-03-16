@@ -3,27 +3,10 @@ import { TokenSecurityValidator } from "../../token-security-validator/TokenSecu
 import { LiquidityMapper } from "./dtos/LiquidityMapper";
 import { AllProtocolsLiquidity } from "../../token-security-validator/models/liquidity.types";
 import { LiquidityDto } from "./dtos/LiquidityDto";
-import {
-  ActiveToken,
-  TokenSecurityValidatorStatistics,
-} from "../../token-security-validator/models/token-security-validator.types";
+import { ActiveToken } from "../../token-security-validator/models/token-security-validator.types";
 import { BadRequestError } from "../../lib/errors/ApiError";
 
 export class TokenSecurityValidatorController {
-  public static getStatus(req: Request, res: Response): void {
-    try {
-      const statistics: TokenSecurityValidatorStatistics = TokenSecurityValidator.getInstance().getStatistics();
-
-      res.json({
-        message: "Token security validator status",
-        statistics: statistics,
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-      throw new BadRequestError(errorMessage);
-    }
-  }
-
   public static getActiveTokens(req: Request, res: Response): void {
     try {
       const activeTokens: ActiveToken[] = TokenSecurityValidator.getInstance().getActiveTokens();

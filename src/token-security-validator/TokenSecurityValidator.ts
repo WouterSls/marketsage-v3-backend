@@ -12,8 +12,7 @@ import { ChainConfig } from "../lib/blockchain/config/chain-config";
 import { TokenValidationQueueService } from "./queue/TokenValidationQueueService";
 import { SECURITY_VALIDATOR_CONFIG } from "./config/security-validator-config";
 import { HoneypotCheckingService } from "./services/HoneypotCheckingService";
-import { TokenMapper } from "../api/token-monitor/dtos/TokenMapper";
-import { TokenDto } from "../api/token-monitor/dtos/TokenDto";
+import { TokenMapper, TokenDto } from "../api/token-monitor/index";
 import { WebhookService } from "../lib/webhooks/WebhookService";
 
 export class TokenSecurityValidator {

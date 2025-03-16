@@ -9,6 +9,7 @@ import { QueueManager } from "./lib/queues/QueueManager";
 import { TokenMonitoringItem, TokenValidationItem } from "./lib/queues/QueueTypes";
 import { QueueNames } from "./lib/queues/QueueTypes";
 import { WebhookService } from "./lib/webhooks/WebhookService";
+import { SetupManager } from "./setup/SetupManager";
 
 export class Services {
   private static instance: Services;
@@ -18,6 +19,8 @@ export class Services {
   private isInitialized = false;
 
   private webhookService: WebhookService | null = null;
+
+  private setupManager: SetupManager | null = null;
 
   private queueManager: QueueManager | null = null;
   private tokenValidationQueueReceiver: TokenValidationQueueReceiver | null = null;
@@ -51,6 +54,12 @@ export class Services {
     try {
       const chainId = await this.provider.getNetwork().then((network) => network.chainId);
       const chainConfig = getChainConfig(chainId);
+
+      this.setupManager = SetupManager.getInstance();
+      await this.setupManager.initialize({
+        provider: this.provider,
+        wallet: this.wallet,
+      });
 
       this.queueManager = QueueManager.getInstance();
       this.webhookService = WebhookService.getInstance();

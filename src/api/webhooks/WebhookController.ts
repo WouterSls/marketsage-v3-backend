@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { WebhookService } from "./WebhookService";
-import { WebhookEventType } from "./webhook.types";
-import { TokenDto } from "../../api/token-monitor/dtos/TokenDto";
+import { WebhookService } from "../../lib/webhooks/WebhookService";
+import { WebhookEventType } from "../../lib/webhooks/webhook.types";
+import { TokenDto } from "../token-monitor/index";
 
 export class WebhookController {
   private static webhookService = WebhookService.getInstance();

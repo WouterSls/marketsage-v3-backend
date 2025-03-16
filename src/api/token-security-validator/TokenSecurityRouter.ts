@@ -3,7 +3,6 @@ import { TokenSecurityValidatorController } from "./TokenSecurityController";
 
 const router = Router();
 
-router.get("/token-security-validator/status", TokenSecurityValidatorController.getStatus);
 router.get("/token-security-validator/active-tokens", TokenSecurityValidatorController.getActiveTokens);
 router.get("/token-security-validator/token-liquidity", TokenSecurityValidatorController.getLiquidity);
 

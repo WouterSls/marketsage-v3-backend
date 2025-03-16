@@ -1,18 +1,25 @@
 import { Request, Response } from "express";
 import { TokenDiscoveryManager } from "../../token-discovery/TokenDiscoveryManager";
-import { TokenDiscoveryInfo } from "../../token-discovery/models/token-discovery.types";
 import { asyncHandler } from "../../lib/middlewares";
-import { BadRequestError } from "../../lib/errors/ApiError";
+import { BadRequestError, InternalServerError } from "../../lib/errors/ApiError";
 
 export class TokenDiscoveryController {
   public static getStatus(req: Request, res: Response): void {
-    const info: TokenDiscoveryInfo = TokenDiscoveryManager.getInstance().getStatus();
+    try {
+      const isRunning: boolean = TokenDiscoveryManager.getInstance().getStatus();
 
-    res.json({
-      message: "Token discovery status",
-      running: info.running,
-      statistics: info.statistics,
-    });
+      res.json({
+        message: "Token discovery status",
+        running: isRunning,
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        const errorMessage = error.message;
+        throw new BadRequestError(errorMessage);
+      } else {
+        throw new InternalServerError("An unknown error occurred");
+      }
+    }
   }
 
   public static startService = asyncHandler(async (req: Request, res: Response) => {

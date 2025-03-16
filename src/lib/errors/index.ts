@@ -13,3 +13,4 @@ export * from "./TradingServiceError";
 export * from "./V2TraderError";
 export * from "./V3TraderError";
 export * from "./V4TraderError";
+export * from "./SetupManagerError";

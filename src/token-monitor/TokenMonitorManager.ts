@@ -11,14 +11,20 @@ import { PriceCheckingService } from "./services/PriceCheckingService";
 
 import { TradeType } from "../lib/db/schema";
 import { WebhookService } from "../lib/webhooks/WebhookService";
-import { TokenDto } from "../api/token-monitor/dtos/TokenDto";
-import { TokenMapper } from "../api/token-monitor/dtos/TokenMapper";
+import { TokenDto, TokenMapper } from "../api/token-monitor/index";
 import { TokenMonitorManagerError, V2TraderError, V3TraderError, V4TraderError } from "../lib/errors";
+import { TokenMonitorStatistics } from "./models/token-monitor.types";
 
 export class TokenMonitorManager {
   private static instance: TokenMonitorManager;
 
   private isInitialized: boolean = false;
+
+  private monitoringCount: Set<string> = new Set();
+  private statistics = {
+    rugpullCount: 0,
+    honeypotCount: 0,
+  };
 
   private provider: Provider | null = null;
   private wallet: Wallet | null = null;
@@ -65,6 +71,16 @@ export class TokenMonitorManager {
 
     console.log("Token Monitor Manager initialized");
     this.isInitialized = true;
+  }
+
+  getStatistics(): TokenMonitorStatistics {
+    const statistics: TokenMonitorStatistics = {
+      monitoringCount: this.monitoringCount.size,
+      rugpullCount: this.statistics.rugpullCount,
+      honeypotCount: this.statistics.honeypotCount,
+    };
+
+    return statistics;
   }
 
   async getAllPositions(): Promise<SelectPosition[]> {
@@ -118,6 +134,52 @@ export class TokenMonitorManager {
       throw new TokenMonitorManagerError(`Failed to buy token: ${errorMessage}`);
     }
   }
+  private async validateBuy(tokenAddress: string, tradeType: TradeType): Promise<{ token: SelectToken; erc20: ERC20 }> {
+    const token: SelectToken | null = await this.tokenService!.getTokenByAddress(tokenAddress);
+    if (!token) {
+      throw new TokenMonitorManagerError(`No validated token found for address ${tokenAddress}`);
+    }
+
+    const validStatuses = ["buyable", "sold"];
+    if (!validStatuses.includes(token.status) || token.isSuspicious) {
+      throw new TokenMonitorManagerError("Token is not buyable");
+    }
+
+    const validTradeTypes: TradeType[] = ["usdValue", "doubleExit", "earlyExit"];
+    if (!validTradeTypes.includes(tradeType)) {
+      throw new TokenMonitorManagerError("Invalid trade type");
+    }
+
+    console.log("Checking for rugpull...");
+    const { isRugpull } = await this.liquidityCheckingService!.rugpullCheck(token);
+    if (isRugpull) {
+      const updatedToken = await this.tokenService!.updateToken(token.address, { status: "rugpull" });
+      const tokenDto: TokenDto = TokenMapper.toTokenDto(updatedToken);
+      await this.webhookService!.broadcast("tokenUpdateHook", {
+        tokenAddress: token.address,
+        data: tokenDto,
+      });
+      this.statistics.rugpullCount++;
+      throw new TokenMonitorManagerError("Token is a rugpull");
+    }
+
+    const erc20 = await createMinimalErc20(token.address, this.provider!);
+
+    console.log("Checking for honeypot...");
+    const { isHoneypot, reason } = await this.honeypotCheckingService!.honeypotCheck(token, erc20);
+    if (isHoneypot) {
+      const updatedToken = await this.tokenService!.updateToken(token.address, { status: "honeypot" });
+      const tokenDto: TokenDto = TokenMapper.toTokenDto(updatedToken);
+      await this.webhookService!.broadcast("tokenUpdateHook", {
+        tokenAddress: token.address,
+        data: tokenDto,
+      });
+      this.statistics.honeypotCount++;
+      throw new TokenMonitorManagerError(`Token is a honeypot: ${reason}`);
+    }
+
+    return { token, erc20 };
+  }
 
   async sellToken(tokenAddress: string, formattedAmount: number): Promise<void> {
     if (!this.isInitialized) {
@@ -145,6 +207,20 @@ export class TokenMonitorManager {
       throw new TokenMonitorManagerError(`Failed to sell token: ${errorMessage}`);
     }
   }
+  private async validateSell(tokenAddress: string): Promise<{ token: SelectToken; erc20: ERC20 }> {
+    const token: SelectToken | null = await this.tokenService!.getTokenByAddress(tokenAddress);
+    if (!token) {
+      throw new TokenMonitorManagerError(`No validated token found for address ${tokenAddress}`);
+    }
+
+    const buyTrades: SelectTrade[] = await this.tradeService!.getBuyTradesForToken(tokenAddress);
+    if (buyTrades.length === 0) {
+      throw new TokenMonitorManagerError("No buy trades found for token");
+    }
+
+    const erc20: ERC20 = await createMinimalErc20(token.address, this.provider!);
+    return { token, erc20 };
+  }
 
   async monitorToken(tokenAddress: string): Promise<void> {
     if (!this.isInitialized) {
@@ -166,6 +242,7 @@ export class TokenMonitorManager {
         tokenAddress: token.address,
         data: tokenDto,
       });
+      this.statistics.rugpullCount++;
       return;
     }
 
@@ -181,6 +258,14 @@ export class TokenMonitorManager {
       },
     });
 
+    /**
+     * TODO: Add foreign keys
+     *  - trade to token (many to one)
+     *  - trade to position (many to one)
+     *  - token to position (one to one)
+     *  - buyTrade to sellTrade (one to many) || sellTrade counter on trade entity?
+     *  - token entity should not have a sold status, it should have a balance boolean?
+     */
     const tradesToEvaulate: SelectTrade[] = await this.tradeService!.getBuyTradesForToken(tokenAddress);
     for (const trade of tradesToEvaulate) {
       const tradeType = trade.type;
@@ -242,72 +327,14 @@ export class TokenMonitorManager {
 
       console.log(`Identified ${tokens.length} tokens to monitor`);
 
+      this.monitoringCount.clear();
       for (const token of tokens) {
+        this.monitoringCount.add(token.address);
         await this.tokenMonitoringQueueService!.enqueueToken(token.address);
       }
     } catch (error) {
       console.error("Error querying tokens for monitoring", error);
       throw error;
     }
-  }
-
-  private async validateBuy(tokenAddress: string, tradeType: TradeType): Promise<{ token: SelectToken; erc20: ERC20 }> {
-    const token: SelectToken | null = await this.tokenService!.getTokenByAddress(tokenAddress);
-    if (!token) {
-      throw new TokenMonitorManagerError(`No validated token found for address ${tokenAddress}`);
-    }
-
-    const validStatuses = ["buyable", "sold"];
-    if (!validStatuses.includes(token.status) || token.isSuspicious) {
-      throw new TokenMonitorManagerError("Token is not buyable");
-    }
-
-    const validTradeTypes: TradeType[] = ["usdValue", "doubleExit", "earlyExit"];
-    if (!validTradeTypes.includes(tradeType)) {
-      throw new TokenMonitorManagerError("Invalid trade type");
-    }
-
-    console.log("Checking for rugpull...");
-    const { isRugpull } = await this.liquidityCheckingService!.rugpullCheck(token);
-    if (isRugpull) {
-      const updatedToken = await this.tokenService!.updateToken(token.address, { status: "rugpull" });
-      const tokenDto: TokenDto = TokenMapper.toTokenDto(updatedToken);
-      await this.webhookService!.broadcast("tokenUpdateHook", {
-        tokenAddress: token.address,
-        data: tokenDto,
-      });
-      throw new TokenMonitorManagerError("Token is a rugpull");
-    }
-
-    const erc20 = await createMinimalErc20(token.address, this.provider!);
-
-    console.log("Checking for honeypot...");
-    const { isHoneypot, reason } = await this.honeypotCheckingService!.honeypotCheck(token, erc20);
-    if (isHoneypot) {
-      const updatedToken = await this.tokenService!.updateToken(token.address, { status: "honeypot" });
-      const tokenDto: TokenDto = TokenMapper.toTokenDto(updatedToken);
-      await this.webhookService!.broadcast("tokenUpdateHook", {
-        tokenAddress: token.address,
-        data: tokenDto,
-      });
-      throw new TokenMonitorManagerError(`Token is a honeypot: ${reason}`);
-    }
-
-    return { token, erc20 };
-  }
-
-  private async validateSell(tokenAddress: string): Promise<{ token: SelectToken; erc20: ERC20 }> {
-    const token: SelectToken | null = await this.tokenService!.getTokenByAddress(tokenAddress);
-    if (!token) {
-      throw new TokenMonitorManagerError(`No validated token found for address ${tokenAddress}`);
-    }
-
-    const buyTrades: SelectTrade[] = await this.tradeService!.getBuyTradesForToken(tokenAddress);
-    if (buyTrades.length === 0) {
-      throw new TokenMonitorManagerError("No buy trades found for token");
-    }
-
-    const erc20: ERC20 = await createMinimalErc20(token.address, this.provider!);
-    return { token, erc20 };
   }
 }

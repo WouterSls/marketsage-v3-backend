@@ -9,16 +9,72 @@ servers:
     description: API v1
 
 tags:
+  - name: Setup
+    description: Setup operations
   - name: Token Discovery
     description: Token discovery operations
   - name: Token Security Validation
     description: Token security validation operations
   - name: Token Monitoring
     description: Token monitoring operations
+  - name: Data
+    description: Data operations
   - name: Webhooks
     description: Webhook subscription and management operations
 
 paths:
+  # Setup
+  /setup/wallet-info:
+    get:
+      summary: Get wallet info
+      description: Returns the current wallet info
+      tags:
+        - Setup
+      responses:
+        "200":
+          description: Wallet info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  walletInfo:
+                    $ref: "#/components/schemas/WalletInfo"
+  /setup/wallet:
+    post:
+      summary: Setup wallet
+      description: Sets up the wallet
+      tags:
+        - Setup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - walletAddress
+                - privateKey
+              properties:
+                walletAddress:
+                  type: string
+                  description: The wallet address
+                privateKey:
+                  type: string
+                  description: The private key
+      responses:
+        "200":
+          description: Wallet setup successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
   # Token Discovery Manager
   /token-discovery/status:
     get:
@@ -39,9 +95,6 @@ paths:
                   running:
                     type: boolean
                     description: Whether the token discovery service is running
-                  statistics:
-                    $ref: "#/components/schemas/TokenDiscoveryStatistics"
-                    description: Statistics of the token discovery service
   /token-discovery/start:
     post:
       summary: Start token discovery service
@@ -111,24 +164,6 @@ paths:
                     example: "Error retrying token verification"
 
   # Token Security Validator
-  /token-security-validator/status:
-    get:
-      summary: Token security validator status
-      description: Returns the current status of the token security validator
-      tags:
-        - Token Security Validation
-      responses:
-        "200":
-          description: Token security validator status
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  statistics:
-                    $ref: "#/components/schemas/TokenSecurityValidatorStatistics"
   /token-security-validator/active-tokens:
     get:
       summary: Get active tokens
@@ -497,6 +532,34 @@ paths:
                     type: string
                     example: "Error monitoring token"
 
+  # Data Endpoints
+  /data/statistics:
+    get:
+      summary: Get statistics
+      description: Returns the current statistics of the system
+      tags:
+        - Data
+      responses:
+        "200":
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Statistics"
+                  data:
+                    type: object
+                    properties:
+                      tokenDiscovery:
+                        $ref: "#/components/schemas/TokenDiscoveryStatistics"
+                      tokenMonitor:
+                        $ref: "#/components/schemas/TokenMonitorStatistics"
+                      tokenSecurityValidator:
+                        $ref: "#/components/schemas/TokenSecurityValidatorStatistics"
+
   # Webhook Management Endpoints
   /webhooks:
     get:
@@ -761,31 +824,39 @@ webhooks:
 
 components:
   schemas:
-    # Token Discovery
-    TokenDiscoveryStatistics:
-      statistics:
-        type: object
-        properties:
-          blocksScanned:
-            type: number
-            description: Number of blocks scanned
-          contractsDiscovered:
-            type: number
-            description: Number of contracts discovered
-          invalidContracts:
-            type: number
-            description: Number of invalid contracts
-          validContracts:
-            type: number
-            description: Number of valid contracts
-          reverifyableContracts:
-            type: number
-            description: Number of reverifyable contracts
-          lastScannedBlock:
-            type: number
-            description: Last scanned block
+    # Setup
+    WalletInfo:
+      type: object
+      properties:
+        address:
+          type: string
+          description: The wallet address
+        ethBalance:
+          type: string
+          description: The balance of the wallet in ETH
 
-    # Token Security Validation
+    # Data
+    TokenDiscoveryStatistics:
+      type: object
+      properties:
+        blocksScanned:
+          type: number
+          description: Number of blocks scanned
+        contractsDiscovered:
+          type: number
+          description: Number of contracts discovered
+        invalidContracts:
+          type: number
+          description: Number of invalid contracts
+        validContracts:
+          type: number
+          description: Number of valid contracts
+        reverifyableContracts:
+          type: number
+          description: Number of reverifyable contracts
+        lastScannedBlock:
+          type: number
+          description: Last scanned block
     TokenSecurityValidatorStatistics:
       type: object
       properties:
@@ -798,6 +869,20 @@ components:
         tokensCreated:
           type: number
           description: Number of tokens created
+    TokenMonitorStatistics:
+      type: object
+      properties:
+        monitoringCount:
+          type: number
+          description: Number of tokens being monitored
+        rugpullCount:
+          type: number
+          description: Number of rugpulls
+        honeypotCount:
+          type: number
+          description: Number of honeypots
+
+    # Token Security Validation
     LiquidityDto:
       type: object
       properties:

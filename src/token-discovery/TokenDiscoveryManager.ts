@@ -7,7 +7,7 @@ import { DISCOVERY_CONFIG } from "./config/discovery-config";
 
 import { TokenDiscoveryManagerError } from "../lib/errors/TokenDiscoveryManagerError";
 import { TokenSecurityValidator } from "../token-security-validator/TokenSecurityValidator";
-import { TokenDiscoveryInfo } from "./models/token-discovery.types";
+import { TokenDiscoveryStatistics } from "./models/token-discovery.types";
 import { sleep } from "../lib/utils/helper-functions";
 
 export class TokenDiscoveryManager {
@@ -20,7 +20,7 @@ export class TokenDiscoveryManager {
 
   private lastScannedBlock = 0;
 
-  private statistics: TokenDiscoveryInfo["statistics"] = {
+  private statistics: TokenDiscoveryStatistics = {
     blocksScanned: 0,
     contractsDiscovered: 0,
     invalidContracts: 0,
@@ -62,12 +62,8 @@ export class TokenDiscoveryManager {
     }
   }
 
-  getStatus(): TokenDiscoveryInfo {
-    return {
-      running: this.isRunning,
-      statistics: { ...this.statistics },
-    };
-  }
+  getStatus = (): boolean => this.isRunning;
+  getStatistics = (): TokenDiscoveryStatistics => this.statistics;
 
   async start(): Promise<void> {
     if (!this.isInitialized) {

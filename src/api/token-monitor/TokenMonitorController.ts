@@ -4,7 +4,7 @@ import { BadRequestError, InternalServerError } from "../../lib/errors/ApiError"
 
 import { TokenMonitorManager } from "../../token-monitor/TokenMonitorManager";
 
-import { PositionMapper, PositionDto, TokenDto, TokenMapper, TradeDto, TradeMapper } from "./dtos/index";
+import { PositionMapper, PositionDto, TokenDto, TokenMapper, TradeDto, TradeMapper } from "./index";
 
 import { SelectPosition, SelectToken, SelectTrade } from "../../db/index";
 
@@ -31,6 +31,16 @@ export class TokenMonitorController {
     try {
       const positions: SelectPosition[] = await TokenMonitorManager.getInstance().getActivePositions();
       const positionsDto: PositionDto[] = positions.map((position) => PositionMapper.toPositionDto(position));
+
+      const TEST_POSITION: PositionDto = {
+        tokenAddress: "0x1234567890123456789012345678901234567890",
+        tokenName: "Test Token",
+        averageEntryPriceUsd: "0.4",
+        averageExitPriceUsd: "0.5",
+        currentProfitLossUsd: "270",
+      };
+      positionsDto.push(TEST_POSITION);
+
       res.json({
         message: "Active positions",
         positions: positionsDto,
