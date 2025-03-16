@@ -4,7 +4,7 @@ import YAML from "yamljs";
 import path from "path";
 import cors from "cors";
 
-import setupRoutes from "./api/ms-setup/SetupRouter";
+import setupRoutes from "./api/setup/SetupRouter";
 import tokenDiscoveryRoutes from "./api/token-discovery/TokenDiscoveryRouter";
 import tokenSecurityValidatorRoutes from "./api/token-security-validator/TokenSecurityRouter";
 import tokenMonitorRoutes from "./api/token-monitor/TokenMonitorRouter";
