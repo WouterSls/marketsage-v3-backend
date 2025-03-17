@@ -282,6 +282,51 @@ paths:
                     type: string
 
   # Token Monitor Manager
+  /token-monitor/tokens/:address:
+    get:
+      summary: Get token by address
+      description: Returns a token by its address
+      tags:
+        - Token Monitoring
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema:
+            type: string
+            description: The address of the token
+      responses:
+        "200":
+          description: Token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  token:
+                    $ref: "#/components/schemas/TokenDto"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid token ID"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Error getting token"
   /token-monitor/tokens:
     get:
       summary: Get all tokens
@@ -299,6 +344,27 @@ paths:
                   message:
                     type: string
                     example: "All tokens"
+                  tokens:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TokenDto"
+  /token-monitor/buyable-tokens:
+    get:
+      summary: Get buyable tokens
+      description: Returns all buyable tokens
+      tags:
+        - Token Monitoring
+      responses:
+        "200":
+          description: Buyable tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Buyable tokens"
                   tokens:
                     type: array
                     items:
@@ -993,6 +1059,9 @@ components:
         discoveredAt:
           type: number
           description: Timestamp when the token was discovered (in milliseconds)
+        formattedRemainingTokens:
+          type: string
+          description: Formatted remaining tokens
     TradeDto:
       type: object
       properties:
