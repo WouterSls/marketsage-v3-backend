@@ -192,6 +192,7 @@ export class LiquidityCheckingService {
     console.log(`Token ${selectToken.address} rugpull check:
       - Liquidity: ${ethers.formatEther(liquidityETH)} ETH
       - Threshold: ${ethers.formatEther(this.RUGPULL_LIQUIDITY_THRESHOLD)} ETH
+      - Protocol: ${selectToken.dex}
       - Rugpull: ${isRugpull ? "Yes" : "No"}`);
 
     return {
