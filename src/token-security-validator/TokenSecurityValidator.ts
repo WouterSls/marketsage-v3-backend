@@ -100,6 +100,7 @@ export class TokenSecurityValidator {
 
     try {
       const erc20 = await createMinimalErc20(normalizedAddress, this.provider!);
+
       const addedAt = Date.now();
 
       const activeToken: ActiveToken = {
@@ -130,15 +131,22 @@ export class TokenSecurityValidator {
       throw new TokenSecurityValidatorError("Token Security Validator not initialized");
     }
 
-    const token = await this.tokenService!.getTokenByAddress(tokenAddress);
-
-    if (token) {
-      throw new TokenSecurityValidatorError(`Token ${tokenAddress} already exists in database`);
-    }
-
     const activeToken = this.activeTokens.get(tokenAddress);
     if (!activeToken) {
       throw new TokenSecurityValidatorError(`Token ${tokenAddress} not found in active tokens`);
+    }
+
+    const token = await this.tokenService!.getTokenByAddress(tokenAddress);
+    if (token) {
+      const updatedToken = await this.tokenService!.updateToken(tokenAddress, { status: "buyable" });
+      const tokenDto: TokenDto = TokenMapper.toTokenDto(updatedToken);
+      await this.webhookService!.broadcast("tokenUpdateHook", {
+        tokenAddress: tokenAddress,
+        data: tokenDto,
+      });
+      this.statistics.tokensCreated++;
+      this.activeTokens.delete(tokenAddress);
+      return;
     }
 
     try {
