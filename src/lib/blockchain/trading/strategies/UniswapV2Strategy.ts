@@ -1,6 +1,6 @@
 import { ethers, Wallet } from "ethers";
 import { ITradingStrategy } from "../ITradingStrategy";
-import { ChainConfig, ERC20, TRADING_CONFIG } from "../../../blockchain";
+import { ChainConfig, ERC20, TradeSuccessInfo, TRADING_CONFIG } from "../../../blockchain";
 import { SelectToken } from "../../../../db";
 import { TradeType } from "../../../../lib/db/schema";
 import { WebhookService } from "../../../../lib/webhooks/WebhookService";
@@ -29,7 +29,7 @@ export class UniswapV2Strategy implements ITradingStrategy {
 
   getName = (): string => this.NAME;
 
-  async buy(token: SelectToken, erc20: ERC20, usdAmount: number, _tradeType: TradeType): Promise<any> {
+  async buy(token: SelectToken, erc20: ERC20, usdAmount: number, _tradeType: TradeType): Promise<TradeSuccessInfo> {
     if (!this.tradeService || !this.positionService || !this.tokenService || !this.webhookService) {
       throw new V2TraderError("TradeService, PositionService, TokenService, or WebhookService is not initialized");
     }
@@ -61,7 +61,7 @@ export class UniswapV2Strategy implements ITradingStrategy {
           data: tokenDto,
         });
 
-        console.log("V2 Trader: Buy successful");
+        console.log(`V2 Trader: Buy successful | tx: ${tradeSuccessInfo.transactionHash}`);
         return tradeSuccessInfo;
       } catch (error: any) {
         attempt++;
@@ -75,28 +75,26 @@ export class UniswapV2Strategy implements ITradingStrategy {
       }
     }
   }
-  async testBuy(erc20: ERC20, usdAmount: number): Promise<any> {
+  async testBuy(erc20: ERC20, usdAmount: number): Promise<void> {
     let attempt = 0;
-    while (true) {
-      try {
-        const tradeSuccessInfo = await this.uniswapV2Router.swapEthInUsdForToken(erc20, usdAmount);
+    try {
+      const tradeSuccessInfo = await this.uniswapV2Router.swapEthInUsdForToken(erc20, usdAmount);
 
-        console.log("V2 Trader: Test buy successful");
-        return tradeSuccessInfo;
-      } catch (error: any) {
-        attempt++;
+      console.log(`V2 Trader: Test buy successful | tx: ${tradeSuccessInfo.transactionHash}`);
+      return;
+    } catch (error: any) {
+      attempt++;
 
-        if (!this.shouldRetry(error, attempt)) {
-          throw new V2TraderError(`Buy failed: ${error}`);
-        }
-
-        console.log(`Buy failed, attempt ${attempt}/${TRADING_CONFIG.MAX_RETRIES}. Retrying...`);
-        await sleep(1);
+      if (!this.shouldRetry(error, attempt)) {
+        throw new V2TraderError(`Buy failed: ${error}`);
       }
+
+      console.log(`Buy failed, attempt ${attempt}/${TRADING_CONFIG.MAX_RETRIES}. Retrying...`);
+      await sleep(1);
     }
   }
 
-  async sell(token: SelectToken, erc20: ERC20, formattedAmount: number): Promise<any> {
+  async sell(token: SelectToken, erc20: ERC20, formattedAmount: number): Promise<TradeSuccessInfo> {
     if (!this.tradeService || !this.positionService || !this.tokenService || !this.webhookService) {
       throw new V2TraderError("TradeService, PositionService, TokenService, or WebhookService is not initialized");
     }
@@ -120,6 +118,8 @@ export class UniswapV2Strategy implements ITradingStrategy {
     let attempt = 0;
     while (true) {
       try {
+        await this.uniswapV2Router!.simulateSellSwap(erc20, rawSellAmount);
+
         const tradeSuccessInfo = await this.uniswapV2Router.swapExactTokenForEth(erc20, rawSellAmount);
 
         const remainingBalance = await erc20.getRawTokenBalance(this.wallet.address);
@@ -148,7 +148,7 @@ export class UniswapV2Strategy implements ITradingStrategy {
 
         await this.positionService.updatePositionOnSell(tokenAddress, tokenName, tradeSuccessInfo);
 
-        console.log("V2 Trader: Sell successful");
+        console.log(`V2 Trader: Sell successful | tx: ${tradeSuccessInfo.transactionHash}`);
         return tradeSuccessInfo;
       } catch (error: any) {
         attempt++;
@@ -162,7 +162,7 @@ export class UniswapV2Strategy implements ITradingStrategy {
       }
     }
   }
-  async testSell(erc20: ERC20, formattedAmount: number): Promise<any> {
+  async testSell(erc20: ERC20, formattedAmount: number): Promise<void> {
     try {
       const allowance = await erc20.getAllowance(this.wallet.address, this.uniswapV2Router.getRouterAddress());
       const rawSellAmount = ethers.parseUnits(formattedAmount.toString(), erc20.getDecimals());
