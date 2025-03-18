@@ -8,12 +8,15 @@ import { ERC20 } from "../../lib/blockchain/models/Erc20";
 
 import { PriceCheckerError } from "../../lib/errors/PriceCheckerError";
 import { V2PriceOracle } from "./priceOracles/V2PriceOracle";
+import { V3PriceOracle } from "./priceOracles/V3PriceOracle";
 
 export class PriceCheckingService {
   private v2PriceOracle: V2PriceOracle;
+  private v3PriceOracle: V3PriceOracle;
 
   constructor(provider: Provider, chainConfig: ChainConfig) {
     this.v2PriceOracle = new V2PriceOracle(provider, chainConfig);
+    this.v3PriceOracle = new V3PriceOracle(provider, chainConfig);
   }
 
   async getTokenPriceUsd(token: SelectToken, erc20: ERC20): Promise<number> {
@@ -21,7 +24,7 @@ export class PriceCheckingService {
       case "uniswapv2":
         return await this.v2PriceOracle.getTokenPriceUsdc(erc20);
       case "uniswapv3":
-        throw new PriceCheckerError("Uniswap V3 not implemented");
+        return await this.v3PriceOracle.getTokenPriceUsdc(erc20);
       // Use QuoterV2 to get price
       case "uniswapv4":
         throw new PriceCheckerError("Uniswap V4 not implemented");
