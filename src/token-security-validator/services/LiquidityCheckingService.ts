@@ -3,7 +3,7 @@ import { ethers, Provider } from "ethers";
 import { ChainConfig } from "../../lib/blockchain/config/chain-config";
 
 import { ActiveToken, DEX } from "../models/token-security-validator.types";
-import { AllProtocolsLiquidity, LiquidityInfo } from "../models/liquidity.types";
+import { AllProtocolsLiquidity, LiquidityInfo, LiquidityInfoV3 } from "../models/liquidity.types";
 
 import { SECURITY_VALIDATOR_CONFIG } from "../config/security-validator-config";
 
@@ -217,6 +217,9 @@ export class LiquidityCheckingService {
 
     return liquidity;
   }
+  async getV3Liquidity(tokenAddress: string): Promise<LiquidityInfoV3> {
+    return await this.checkV3Liquidity(tokenAddress);
+  }
 
   private async checkV2Liquidity(tokenAddress: string) {
     try {
@@ -258,7 +261,7 @@ export class LiquidityCheckingService {
     }
   }
 
-  private async checkV3Liquidity(tokenAddress: string) {
+  private async checkV3Liquidity(tokenAddress: string): Promise<LiquidityInfoV3> {
     try {
       const factoryInterface = new ethers.Interface([
         "function getPool(address tokenA, address tokenB, uint24 fee) view returns (address pool)",
@@ -267,10 +270,10 @@ export class LiquidityCheckingService {
       const factoryContract = new ethers.Contract(this.UNI_V3_FACTORY_ADDRESS!, factoryInterface, this.provider);
 
       const feeTiers = [100, 500, 3000, 10000]; // 0.01%, 0.05%, 0.3%, 1%
-      let bestPool = {
+      let bestPool: LiquidityInfoV3 = {
         exists: false,
         liquidityEth: "0",
-        tick: 0,
+        tick: "0",
         poolAddress: ethers.ZeroAddress,
         feeTier: 0,
       };
