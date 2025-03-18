@@ -10,7 +10,7 @@ router.get("/token-monitor/trades", TokenMonitorController.getAllTrades);
 router.get("/token-monitor/positions", TokenMonitorController.getAllPositions);
 router.get("/token-monitor/active-positions", TokenMonitorController.getActivePositions);
 
-router.post("/token-monitor/buy-token", TokenMonitorController.monitorToken);
+router.post("/token-monitor/buy-token", TokenMonitorController.buyToken);
 router.post("/token-monitor/sell-token", TokenMonitorController.monitorToken);
 router.post("/token-monitor/monitor-token", TokenMonitorController.monitorToken);
 
