@@ -24,7 +24,7 @@ export class TokenDiscoveryController {
 
   public static startService = asyncHandler(async (req: Request, res: Response) => {
     try {
-      TokenDiscoveryManager.getInstance().start();
+      await TokenDiscoveryManager.getInstance().start();
       res.json({
         success: true,
         message: "Token discovery service started",

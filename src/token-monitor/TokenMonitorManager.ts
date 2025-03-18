@@ -83,30 +83,24 @@ export class TokenMonitorManager {
     return statistics;
   }
 
-  async getAllPositions(): Promise<SelectPosition[]> {
-    if (!this.positionService) {
-      throw new TokenMonitorManagerError("Position service not initialized");
-    }
-    return this.positionService.getAllPositions();
-  }
-  async getActivePositions(): Promise<SelectPosition[]> {
-    if (!this.positionService) {
-      throw new TokenMonitorManagerError("Position service not initialized");
-    }
-    return this.positionService.getActivePositions();
-  }
-  async getAllTokens(): Promise<SelectToken[]> {
+  getTokenService = (): TokenService => {
     if (!this.tokenService) {
       throw new TokenMonitorManagerError("Token service not initialized");
     }
-    return this.tokenService.getAllTokens();
-  }
-  async getAllTrades(): Promise<SelectTrade[]> {
+    return this.tokenService;
+  };
+  getTradeService = (): TradeService => {
     if (!this.tradeService) {
       throw new TokenMonitorManagerError("Trade service not initialized");
     }
-    return this.tradeService.getAllTrades();
-  }
+    return this.tradeService;
+  };
+  getPositionService = (): PositionService => {
+    if (!this.positionService) {
+      throw new TokenMonitorManagerError("Position service not initialized");
+    }
+    return this.positionService;
+  };
 
   async buyToken(tokenAddress: string, tradeType: TradeType, usdAmount: number): Promise<void> {
     if (!this.isInitialized) {

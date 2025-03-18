@@ -1059,9 +1059,6 @@ components:
         discoveredAt:
           type: number
           description: Timestamp when the token was discovered (in milliseconds)
-        formattedRemainingTokens:
-          type: string
-          description: Formatted remaining tokens
     TradeDto:
       type: object
       properties:
@@ -1116,8 +1113,11 @@ components:
           type: string
           description: Average exit price in USD
         currentProfitLossUsd:
-          type: number
+          type: string
           description: Current profit/loss in USD
+        formattedRemainingTokens:
+          type: string
+          description: Formatted remaining tokens
 
     # Webhooks
     WebhookSubscription:

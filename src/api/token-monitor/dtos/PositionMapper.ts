@@ -9,6 +9,7 @@ export class PositionMapper {
       averageEntryPriceUsd: position.averageEntryPriceUsd,
       averageExitPriceUsd: position.averageExitPriceUsd,
       currentProfitLossUsd: position.currentProfitLossUsd,
+      formattedRemainingTokens: position.formattedRemainingTokens || "0",
     };
   }
 }

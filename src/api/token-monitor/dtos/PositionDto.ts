@@ -4,4 +4,5 @@ export interface PositionDto {
   averageEntryPriceUsd: string;
   averageExitPriceUsd: string;
   currentProfitLossUsd: string;
+  formattedRemainingTokens: string;
 }
