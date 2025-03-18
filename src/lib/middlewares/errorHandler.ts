@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
-import { ApiError } from "../errors/ApiError";
+import { ApiError, InternalServerError } from "../errors/ApiError";
 import dotenv from "dotenv";
 import path from "path";
 
@@ -21,6 +21,12 @@ export const errorHandler: ErrorRequestHandler = (
     statusCode = err.statusCode;
     message = err.message;
     isOperational = err.isOperational;
+  }
+
+  if (err instanceof InternalServerError) {
+    statusCode = 500;
+    message = err.message;
+    isOperational = true;
   }
 
   if (process.env.NODE_ENV === "development") {
