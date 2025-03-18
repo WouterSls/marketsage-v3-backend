@@ -112,10 +112,20 @@ export class TokenMonitorController {
   public static buyToken = asyncHandler(async (req: Request, res: Response) => {
     try {
       const { tokenAddress, tradeType, usdAmount } = req.body;
-      await TokenMonitorManager.getInstance().buyToken(tokenAddress, tradeType, usdAmount);
-      res.json({
-        message: "Token bought",
-      });
+      const token = await TokenMonitorManager.getInstance().getTokenService().getTokenByAddress(tokenAddress);
+      if (!token) {
+        throw new BadRequestError("Token not found");
+      }
+      TokenMonitorManager.getInstance().buyToken(tokenAddress, tradeType, usdAmount);
+      if (token.status === "buyable") {
+        res.json({
+          message: "Checking for honeypot & creating buy transaction...",
+        });
+      } else {
+        res.json({
+          message: "Creating buy transaction...",
+        });
+      }
     } catch (error: unknown) {
       if (error instanceof Error) {
         const errorMessage = error.message;
