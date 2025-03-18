@@ -1051,7 +1051,7 @@ components:
           description: Token creator address
         status:
           type: string
-          enum: ["buyable", "sold", "honeypot", "rugpull", "archived"]
+          enum: ["buyable", "sold", "validated", "honeypot", "rugpull", "archived"]
           description: Token status
         isSuspicious:
           type: boolean
