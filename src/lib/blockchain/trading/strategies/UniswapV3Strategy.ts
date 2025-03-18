@@ -97,7 +97,24 @@ export class UniswapV3Strategy implements ITradingStrategy {
     throw new TechnicalError("Not implemented");
   }
   async testSell(erc20: ERC20, amount: number): Promise<void> {
-    throw new TechnicalError("Not implemented");
+    let attempt = 0;
+    while (true) {
+      try {
+        const price = await this.uniswapV2Quoter.quoteExactInputSingle([this.wethAddress, this.usdcAddress], amount);
+
+        console.log(`V3 Trader: price estimation: ${price}`);
+        return;
+      } catch (error: any) {
+        attempt++;
+
+        if (!this.shouldRetry(error, attempt)) {
+          throw new V3TraderError(`Buy failed: ${error}`);
+        }
+
+        console.log(`Buy failed, attempt ${attempt}/${TRADING_CONFIG.MAX_RETRIES}. Retrying...`);
+        await sleep(1);
+      }
+    }
   }
 
   private shouldRetry(error: any, attempt: number): boolean {

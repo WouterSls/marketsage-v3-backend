@@ -4,8 +4,9 @@ import { ITradingStrategy } from "./ITradingStrategy";
 import { UniswapV2Strategy } from "./strategies/UniswapV2Strategy";
 import { TradeService, PositionService, TokenService } from "../../../db/index";
 import { WebhookService } from "../../../lib/webhooks/WebhookService";
-import { TradingServiceError } from "../../../lib/errors/TradingServiceError";
 import { DexType } from "../../db/schema";
+import { TechnicalError } from "../../errors/index";
+import { UniswapV3Strategy } from "./strategies/UniswapV3Strategy";
 
 export class TradingStrategyFactory {
   static createStrategy(
@@ -21,13 +22,13 @@ export class TradingStrategyFactory {
       case "uniswapv2":
         return new UniswapV2Strategy(wallet, chainConfig, tradeService, positionService, tokenService, webhookService);
       case "uniswapv3":
-        throw new TradingServiceError("Uniswap V3 trading not implemented yet");
+        return new UniswapV3Strategy(wallet, chainConfig, tradeService, positionService, tokenService, webhookService);
       case "uniswapv4":
-        throw new TradingServiceError("Uniswap V4 trading not implemented yet");
+        throw new TechnicalError("Uniswap V4 trading not implemented yet");
       case "aerodrome":
-        throw new TradingServiceError("Aerodrome trading not implemented yet");
+        throw new TechnicalError("Aerodrome trading not implemented yet");
       default:
-        throw new TradingServiceError(`Unsupported DEX type: ${dexType}`);
+        throw new TechnicalError(`Unsupported DEX type: ${dexType}`);
     }
   }
 }
