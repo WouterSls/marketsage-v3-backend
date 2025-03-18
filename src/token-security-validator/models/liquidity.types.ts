@@ -6,6 +6,14 @@ export interface LiquidityInfo {
   liquidityETH: string;
 }
 
+export interface LiquidityInfoV3 {
+  exists: boolean;
+  liquidityEth: string;
+  tick: string;
+  poolAddress: string;
+  feeTier: number;
+}
+
 export interface AllProtocolsLiquidity {
   v2Liquidity: {
     exists: boolean;
