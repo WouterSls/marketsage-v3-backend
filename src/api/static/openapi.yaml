@@ -938,9 +938,12 @@ components:
     TokenMonitorStatistics:
       type: object
       properties:
-        monitoringCount:
+        allMonitoringCount:
           type: number
-          description: Number of tokens being monitored
+          description: Number of all tokens being monitored
+        activeMonitoringCount:
+          type: number
+          description: Number of active tokens being monitored
         rugpullCount:
           type: number
           description: Number of rugpulls

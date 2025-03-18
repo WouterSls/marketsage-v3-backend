@@ -1,5 +1,6 @@
 export type TokenMonitorStatistics = {
-  monitoringCount: number;
+  allMonitoringCount: number;
+  activeMonitoringCount: number;
   rugpullCount: number;
   honeypotCount: number;
 };
