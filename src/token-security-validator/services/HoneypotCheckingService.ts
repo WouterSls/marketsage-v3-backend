@@ -1,7 +1,6 @@
 import { Wallet } from "ethers";
 
 import { SECURITY_VALIDATOR_CONFIG } from "../config/security-validator-config";
-import { ActiveToken } from "../models/token-security-validator.types";
 
 import { ChainConfig } from "../../lib/blockchain/config/chain-config";
 import { HoneypotError } from "../../lib/errors/HoneypotError";
@@ -9,6 +8,7 @@ import { sleep } from "../../lib/utils/helper-functions";
 
 import { ERC20, TradingStrategyFactory } from "../../lib/blockchain/index";
 import { SelectToken } from "../../db";
+import { TechnicalError } from "../../lib/errors/TechnicalError";
 
 export class HoneypotCheckingService {
   constructor(
@@ -16,7 +16,18 @@ export class HoneypotCheckingService {
     private chainConfig: ChainConfig,
   ) {}
 
-  async honeypotCheck(token: SelectToken, erc20: ERC20) {
+  async honeypotCheck(token: SelectToken, erc20: ERC20): Promise<{ isHoneypot: boolean; reason: string }> {
+    const skipableStatuses = ["validated", "sold"];
+    if (skipableStatuses.includes(token.status)) {
+      return {
+        isHoneypot: false,
+        reason: "Token is validated",
+      };
+    }
+    if (token.status !== "buyable") {
+      throw new HoneypotError("Only buyable tokens can be validated");
+    }
+
     try {
       await this.testBuy(token, erc20);
 
@@ -36,20 +47,28 @@ export class HoneypotCheckingService {
           reason: error.message,
         };
       }
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      if (errorMessage.includes("not implemented")) {
+        return {
+          isHoneypot: false,
+          reason: errorMessage,
+        };
+      }
+      throw new HoneypotError(`Honeypot check failed: ${errorMessage}`);
     }
   }
 
   private async testBuy(token: SelectToken, erc20: ERC20) {
     try {
       const buyAmount = SECURITY_VALIDATOR_CONFIG.USD_TEST_AMOUNT;
-      const tradeType = "usdValue";
 
       const tradingStrategy = TradingStrategyFactory.createStrategy(token.dex, this.wallet, this.chainConfig);
 
-      await tradingStrategy.buy(token, erc20, buyAmount, tradeType);
-    } catch (error) {
-      console.log(error);
+      await tradingStrategy.testBuy(erc20, buyAmount);
+    } catch (error: unknown) {
+      if (error instanceof TechnicalError) {
+        throw error;
+      }
       throw new HoneypotError(`Test buy failed: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   }
