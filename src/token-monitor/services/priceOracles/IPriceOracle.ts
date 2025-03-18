@@ -1,4 +1,4 @@
-import { ERC20 } from "../../lib/blockchain/models/Erc20";
+import { ERC20 } from "../../../lib/blockchain/models/Erc20";
 
 export interface IPriceOracle {
   getEthUsdcPrice(): Promise<number>;

@@ -8,7 +8,7 @@ import { UNISWAP_V2_ROUTER_ABI } from "../../../lib/blockchain/contract-abis/con
 import { TechnicalError } from "../../../lib/errors/TechnicalError";
 import { RouterError } from "../../../lib/errors/RouterError";
 
-import { IPriceOracle } from "../../interfaces/IPriceOracle";
+import { IPriceOracle } from "./IPriceOracle";
 
 export class V2PriceOracle implements IPriceOracle {
   private readonly NAME = "UniswapV2Router";

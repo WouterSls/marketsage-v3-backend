@@ -2,7 +2,7 @@ import { Contract, ethers, Provider } from "ethers";
 
 import { ERC20 } from "../../../lib/blockchain/models/Erc20";
 import { TechnicalError } from "../../../lib/errors/TechnicalError";
-import { IPriceOracle } from "../../interfaces/IPriceOracle";
+import { IPriceOracle } from "./IPriceOracle";
 import { encodePath } from "../../../lib/blockchain/utils/blockchain-utils";
 import { ChainConfig } from "../../../lib/blockchain/config/chain-config";
 import { UNISWAP_V3_QUOTER_ABI } from "../../../lib/blockchain/contract-abis/contract-abis";
