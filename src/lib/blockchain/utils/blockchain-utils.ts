@@ -50,3 +50,18 @@ export function calculateSlippageAmount(rawAmount: bigint, slippageTolerance: nu
   const slippageAmount = (rawAmount * BigInt(slippageMultiplier)) / 100n;
   return slippageAmount;
 }
+
+export function encodePath(tokens: string[], fees: number[]): string {
+  if (tokens.length <= 1 || tokens.length !== fees.length + 1) {
+    throw new TechnicalError("Invalid tokens or fees length for path encoding");
+  }
+
+  let encoded = "0x";
+  for (let i = 0; i < tokens.length - 1; i++) {
+    encoded += tokens[i].slice(2);
+    encoded += fees[i].toString(16).padStart(6, "0");
+  }
+  encoded += tokens[tokens.length - 1].slice(2);
+
+  return encoded;
+}
