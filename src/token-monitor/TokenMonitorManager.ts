@@ -9,10 +9,16 @@ import { MONITOR_CONFIG } from "./config/monitor-config";
 import { TokenMonitoringQueueService } from "./queue/TokenMonitoringQueueService";
 import { PriceCheckingService } from "./services/PriceCheckingService";
 
-import { TradeType } from "../lib/db/schema";
+import { TokenStatus, TradeType } from "../lib/db/schema";
 import { WebhookService } from "../lib/webhooks/WebhookService";
 import { TokenDto, TokenMapper } from "../api/token-monitor/index";
-import { TokenMonitorManagerError, V2TraderError, V3TraderError, V4TraderError } from "../lib/errors";
+import {
+  InternalServerError,
+  TokenMonitorManagerError,
+  V2TraderError,
+  V3TraderError,
+  V4TraderError,
+} from "../lib/errors";
 import { TokenMonitorStatistics } from "./models/token-monitor.types";
 
 export class TokenMonitorManager {
@@ -20,7 +26,8 @@ export class TokenMonitorManager {
 
   private isInitialized: boolean = false;
 
-  private monitoringCount: Set<string> = new Set();
+  private allMonitoringCount: Set<string> = new Set();
+  private activeMonitoringCount: Set<string> = new Set();
   private statistics = {
     rugpullCount: 0,
     honeypotCount: 0,
@@ -66,6 +73,7 @@ export class TokenMonitorManager {
 
     this.liquidityCheckingService = new LiquidityCheckingService(config.provider, config.chainConfig);
     this.priceCheckingService = new PriceCheckingService(config.provider, config.chainConfig);
+    this.honeypotCheckingService = new HoneypotCheckingService(config.wallet, config.chainConfig);
 
     this.setupTokenMonitor();
 
@@ -75,7 +83,8 @@ export class TokenMonitorManager {
 
   getStatistics(): TokenMonitorStatistics {
     const statistics: TokenMonitorStatistics = {
-      monitoringCount: this.monitoringCount.size,
+      allMonitoringCount: this.allMonitoringCount.size,
+      activeMonitoringCount: this.activeMonitoringCount.size,
       rugpullCount: this.statistics.rugpullCount,
       honeypotCount: this.statistics.honeypotCount,
     };
@@ -134,7 +143,7 @@ export class TokenMonitorManager {
       throw new TokenMonitorManagerError(`No validated token found for address ${tokenAddress}`);
     }
 
-    const validStatuses = ["buyable", "sold"];
+    const validStatuses = ["buyable", "sold", "validated"];
     if (!validStatuses.includes(token.status) || token.isSuspicious) {
       throw new TokenMonitorManagerError("Token is not buyable");
     }
@@ -170,6 +179,19 @@ export class TokenMonitorManager {
       });
       this.statistics.honeypotCount++;
       throw new TokenMonitorManagerError(`Token is a honeypot: ${reason}`);
+    }
+
+    if (reason.toLowerCase().includes("not implemented")) {
+      throw new InternalServerError(`Missing implementation in honeypot check: ${reason}`);
+    }
+
+    if (!reason.toLowerCase().includes("token is validated")) {
+      const updatedToken = await this.tokenService!.updateToken(token.address, { status: "validated" });
+      const tokenDto: TokenDto = TokenMapper.toTokenDto(updatedToken);
+      await this.webhookService!.broadcast("tokenUpdateHook", {
+        tokenAddress: token.address,
+        data: tokenDto,
+      });
     }
 
     return { token, erc20 };
@@ -303,16 +325,56 @@ export class TokenMonitorManager {
 
   private async setupTokenMonitor(): Promise<void> {
     setInterval(() => {
-      this.identifyTokensForMonitoring();
-    }, MONITOR_CONFIG.MONITOR_INTERVAL);
+      console.log("Active token identification");
+      this.activeTokenIdentification();
+    }, MONITOR_CONFIG.ACTIVE_TOKEN_MONITOR_INTERVAL);
+
+    setInterval(() => {
+      console.log("All token identification");
+      this.allTokenIdentification();
+    }, MONITOR_CONFIG.ALL_TOKEN_MONITOR_INTERVAL);
   }
-  private async identifyTokensForMonitoring(): Promise<void> {
+  private async activeTokenIdentification(): Promise<void> {
     if (!this.isInitialized) {
       throw new TokenMonitorManagerError("Token Monitor Manager not initialized");
     }
 
     try {
-      const tokens = await this.tokenService!.getTokensByStatus("buyable");
+      const positionService = this.getPositionService();
+      const activePositions: SelectPosition[] = await positionService.getActivePositions();
+
+      if (activePositions.length === 0) {
+        console.log("No active token positions found");
+        return;
+      }
+
+      const activeTokenAddresses: string[] = activePositions.map((position) => position.tokenAddress);
+
+      if (activeTokenAddresses.length === 0) {
+        console.log("No addresses found for active token positions");
+        return;
+      }
+
+      console.log(`Identified ${activeTokenAddresses.length} active tokens to monitor`);
+
+      this.activeMonitoringCount.clear();
+      for (const tokenAddress of activeTokenAddresses) {
+        this.activeMonitoringCount.add(tokenAddress);
+        await this.tokenMonitoringQueueService!.enqueueToken(tokenAddress);
+      }
+    } catch (error) {
+      console.error("Error querying tokens for monitoring", error);
+      throw error;
+    }
+  }
+  private async allTokenIdentification(): Promise<void> {
+    if (!this.isInitialized) {
+      throw new TokenMonitorManagerError("Token Monitor Manager not initialized");
+    }
+
+    try {
+      const statusList: TokenStatus[] = ["buyable", "validated", "sold"];
+      const tokens = await this.tokenService!.getTokensByStatuses(statusList);
 
       if (tokens.length === 0) {
         console.log("No tokens to monitor");
@@ -321,9 +383,9 @@ export class TokenMonitorManager {
 
       console.log(`Identified ${tokens.length} tokens to monitor`);
 
-      this.monitoringCount.clear();
+      this.allMonitoringCount.clear();
       for (const token of tokens) {
-        this.monitoringCount.add(token.address);
+        this.allMonitoringCount.add(token.address);
         await this.tokenMonitoringQueueService!.enqueueToken(token.address);
       }
     } catch (error) {
