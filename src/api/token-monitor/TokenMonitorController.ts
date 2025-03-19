@@ -7,6 +7,7 @@ import { TokenMonitorManager } from "../../token-monitor/TokenMonitorManager";
 import { PositionMapper, PositionDto, TokenDto, TokenMapper, TradeDto, TradeMapper } from "./index";
 
 import { SelectPosition, SelectToken, SelectTrade } from "../../db/index";
+import { TokenStatus } from "../../lib/db/schema";
 
 export class TokenMonitorController {
   public static getTokenByAddress = asyncHandler(async (req: Request, res: Response) => {
@@ -90,9 +91,10 @@ export class TokenMonitorController {
   }
   public static async getBuyableTokens(req: Request, res: Response): Promise<void> {
     try {
+      const buyableStatuses: TokenStatus[] = ["buyable", "sold", "validated"];
       const tokens: SelectToken[] = await TokenMonitorManager.getInstance()
         .getTokenService()
-        .getTokensByStatus("buyable");
+        .getTokensByStatuses(buyableStatuses);
 
       const tokensDto: TokenDto[] = tokens.map((token) => TokenMapper.toTokenDto(token));
       res.json({
@@ -168,6 +170,22 @@ export class TokenMonitorController {
     }
   });
 
+  public static archiveToken = asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { tokenAddress, reason } = req.body;
+      await TokenMonitorManager.getInstance().archiveToken(tokenAddress, reason);
+      res.json({
+        message: "Token archived",
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        const errorMessage = error.message;
+        throw new BadRequestError(errorMessage);
+      } else {
+        throw new InternalServerError("An unknown error occurred");
+      }
+    }
+  });
   public static async getAllTrades(req: Request, res: Response): Promise<void> {
     try {
       const trades: SelectTrade[] = await TokenMonitorManager.getInstance().getTradeService().getAllTrades();

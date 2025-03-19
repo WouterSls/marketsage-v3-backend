@@ -369,6 +369,59 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/TokenDto"
+  /token-monitor/archive-token:
+    post:
+      summary: Archive token
+      description: Archives a token
+      tags:
+        - Token Monitoring
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tokenAddress
+                - reason
+              properties:
+                tokenAddress:
+                  type: string
+                  description: The address of the token to archive
+                reason:
+                  type: string
+                  description: The reason for archiving the token
+                  example: "Rug pull"
+      responses:
+        "200":
+          description: Token archived successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Token archived successfully"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid token address"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
   /token-monitor/trades:
     get:
       summary: Get all trades
@@ -1056,6 +1109,10 @@ components:
           type: string
           enum: ["buyable", "sold", "validated", "honeypot", "rugpull", "archived"]
           description: Token status
+        dex:
+          type: string
+          enum: ["uniswapv2", "uniswapv3", "uniswapv4", "aerodrome", "balancer"]
+          description: Token dex
         isSuspicious:
           type: boolean
           description: Whether the token is suspicious

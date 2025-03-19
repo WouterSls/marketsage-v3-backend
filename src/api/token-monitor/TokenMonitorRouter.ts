@@ -14,4 +14,6 @@ router.post("/token-monitor/buy-token", TokenMonitorController.buyToken);
 router.post("/token-monitor/sell-token", TokenMonitorController.monitorToken);
 router.post("/token-monitor/monitor-token", TokenMonitorController.monitorToken);
 
+router.put("/token-monitor/archive-token", TokenMonitorController.archiveToken);
+
 export default router;

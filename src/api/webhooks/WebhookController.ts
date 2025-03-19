@@ -82,6 +82,7 @@ export class WebhookController {
         address: "0x0000000000000000000000000000000000000000",
         name: "Test Token",
         status: "honeypot",
+        dex: "uniswapv2",
         creatorAddress: "0x0000000000000000000000000000000000000000",
         isSuspicious: false,
         discoveredAt: Date.now(),
