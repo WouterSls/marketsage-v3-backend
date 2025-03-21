@@ -282,22 +282,26 @@ paths:
                     type: string
 
   # Token Monitor Manager
-  /token-monitor/tokens/:address:
+  /token-monitor/tokens:
     get:
-      summary: Get token by address
-      description: Returns a token by its address
+      summary: Get tokens
+      description: Returns tokens being monitored, optionally filtered by status
       tags:
         - Token Monitoring
       parameters:
-        - in: path
-          name: address
-          required: true
+        - in: query
+          name: status
           schema:
-            type: string
-            description: The address of the token
+            type: array
+            items:
+              type: string
+              enum: ["buyable", "sold", "validated", "honeypot", "rugpull", "archived"]
+          description: Filter tokens by status (can be provided multiple times for multiple statuses)
+          style: form
+          explode: true
       responses:
         "200":
-          description: Token
+          description: Tokens
           content:
             application/json:
               schema:
@@ -305,123 +309,11 @@ paths:
                 properties:
                   message:
                     type: string
-                  token:
-                    $ref: "#/components/schemas/TokenDto"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Invalid token ID"
-        "500":
-          description: Server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Error getting token"
-  /token-monitor/tokens:
-    get:
-      summary: Get all tokens
-      description: Returns all tokens being monitored
-      tags:
-        - Token Monitoring
-      responses:
-        "200":
-          description: All tokens
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "All tokens"
+                    example: "Tokens"
                   tokens:
                     type: array
                     items:
                       $ref: "#/components/schemas/TokenDto"
-  /token-monitor/buyable-tokens:
-    get:
-      summary: Get buyable tokens
-      description: Returns all buyable tokens
-      tags:
-        - Token Monitoring
-      responses:
-        "200":
-          description: Buyable tokens
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Buyable tokens"
-                  tokens:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/TokenDto"
-  /token-monitor/archive-token:
-    post:
-      summary: Archive token
-      description: Archives a token
-      tags:
-        - Token Monitoring
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - tokenAddress
-                - reason
-              properties:
-                tokenAddress:
-                  type: string
-                  description: The address of the token to archive
-                reason:
-                  type: string
-                  description: The reason for archiving the token
-                  example: "Rug pull"
-      responses:
-        "200":
-          description: Token archived successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Token archived successfully"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Invalid token address"
-        "500":
-          description: Server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
   /token-monitor/trades:
     get:
       summary: Get all trades
@@ -484,12 +376,64 @@ paths:
                     items:
                       $ref: "#/components/schemas/PositionDto"
 
-  /token-monitor/buy-token:
+  /token-monitor/tokens/:address:
+    get:
+      summary: Get token by address
+      description: Returns a token by its address
+      tags:
+        - Token Monitoring
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema:
+            type: string
+            description: The address of the token
+      responses:
+        "200":
+          description: Token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  token:
+                    $ref: "#/components/schemas/TokenDto"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid token ID"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Error getting token"
+  /token-monitor/tokens/:address/buy:
     post:
       summary: Buy token
       description: Executes a token purchase transaction
       tags:
         - Token Monitoring
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema:
+            type: string
+            description: The address of the token
       requestBody:
         required: true
         content:
@@ -497,14 +441,9 @@ paths:
             schema:
               type: object
               required:
-                - tokenAddress
                 - tradeType
                 - usdAmount
               properties:
-                tokenAddress:
-                  type: string
-                  description: The token contract address
-                  example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
                 tradeType:
                   type: string
                   description: The type of trade to execute
@@ -545,12 +484,19 @@ paths:
                   message:
                     type: string
                     example: "Error buying token"
-  /token-monitor/sell-token:
+  /token-monitor/tokens/:address/sell:
     post:
       summary: Sell token
       description: Executes a token sell transaction
       tags:
         - Token Monitoring
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema:
+            type: string
+            description: The address of the token
       requestBody:
         required: true
         content:
@@ -558,13 +504,8 @@ paths:
             schema:
               type: object
               required:
-                - tokenAddress
                 - formattedAmount
               properties:
-                tokenAddress:
-                  type: string
-                  description: The token contract address
-                  example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
                 formattedAmount:
                   type: string
                   description: The formatted amount of tokens to sell
@@ -600,25 +541,19 @@ paths:
                   message:
                     type: string
                     example: "Error selling token"
-  /token-monitor/monitor-token:
-    post:
+  /token-monitor/tokens/:address/monitor:
+    put:
       summary: Monitor token
-      description: Adds a token to the monitoring system
+      description: monitor a token
       tags:
         - Token Monitoring
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - tokenAddress
-              properties:
-                tokenAddress:
-                  type: string
-                  description: The token contract address
-                  example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema:
+            type: string
+            description: The address of the token
       responses:
         "200":
           description: Token successfully added to monitoring
@@ -650,6 +585,63 @@ paths:
                   message:
                     type: string
                     example: "Error monitoring token"
+  /token-monitor/tokens/:address/archive:
+    put:
+      summary: Archive token
+      description: Archives a token
+      tags:
+        - Token Monitoring
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema:
+            type: string
+            description: The address of the token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  description: The reason for archiving the token
+                  enum: ["honeypot", "rugpull", "archived"]
+                  example: "honeypot"
+      responses:
+        "200":
+          description: Token archived successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Token archived successfully"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid token address"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
 
   # Data Endpoints
   /data/statistics:
@@ -1099,6 +1091,9 @@ components:
         name:
           type: string
           description: Token name
+        symbol:
+          type: string
+          description: Token symbol
         address:
           type: string
           description: Token contract address
