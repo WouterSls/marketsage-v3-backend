@@ -60,15 +60,20 @@ export class TokenService {
 
   /**
    * Creates a new token in the database
-   * @param tokenAddress - The address of the token
    * @param tokenName - The name of the token
-   * @param status - The initial status of the token
+   * @param tokenSymbol - The symbol of the token
+   * @param tokenAddress - The address of the token
+   * @param creatorAddress - The address of the creator of the token
+   * @param discoveredAt - The timestamp when the token was discovered
+   * @param status - The initial status of the token (validated, buyable, sold, rugpull, honeypot, archived)
+   * @param dex - The dex of the token (uniswapv2, uniswapv3, uniswapv4, aerodrome, balancer)
    * @returns Promise resolving to the created token
    * @throws TechnicalError if token creation fails or business rules are violated
    */
   async createToken(
-    tokenAddress: string,
     tokenName: string,
+    tokenSymbol: string,
+    tokenAddress: string,
     creatorAddress: string,
     discoveredAt: number,
     status: TokenStatus,
@@ -86,8 +91,9 @@ export class TokenService {
       const nowUnix = Math.floor(Date.now() / 1000);
 
       const tokenInfo: InsertToken = {
-        address: tokenAddress,
         name: tokenName,
+        symbol: tokenSymbol,
+        address: tokenAddress,
         creatorAddress: creatorAddress,
         status: status,
         discoveredAt: discoveredAt,

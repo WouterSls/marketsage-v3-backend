@@ -175,10 +175,12 @@ export class TokenSecurityValidator {
       const discoveredAt = activeToken.addedAt;
       const status = "buyable";
       const dex = activeToken.protocol;
+      const symbol = activeToken.erc20.getSymbol();
 
       const createdToken = await this.tokenService!.createToken(
-        tokenAddress,
         tokenName,
+        symbol,
+        tokenAddress,
         creatorAddress,
         discoveredAt,
         status,

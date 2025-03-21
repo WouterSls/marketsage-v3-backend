@@ -1,14 +1,7 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
-export type TokenStatus =
-  | "validated"
-  | "buyable"
-  | "sold"
-  // archived
-  | "rugpull"
-  | "honeypot"
-  | "archived";
+export type TokenStatus = "validated" | "buyable" | "sold" | "rugpull" | "honeypot" | "archived";
 export type DexType = "uniswapv2" | "uniswapv3" | "uniswapv4" | "aerodrome" | "balancer" | null;
 
 export type TradeStatus = "buy" | "sell";
@@ -17,6 +10,7 @@ export type TradeType = "usdValue" | "doubleExit" | "earlyExit" | "partialSell" 
 export const token = sqliteTable("token", {
   id: integer("id").primaryKey({ autoIncrement: true }).notNull(),
   name: text("name").notNull(),
+  symbol: text("symbol").notNull(),
   address: text("address").notNull(),
   creatorAddress: text("creator_address").notNull(),
   status: text("status", {
