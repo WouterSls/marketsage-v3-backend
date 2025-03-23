@@ -13,10 +13,11 @@ export class TokenMonitorController {
   public static getTokenByAddress = asyncHandler(async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
+      const normalizedAddress = address.toLowerCase();
 
       const token: SelectToken | null = await TokenMonitorManager.getInstance()
         .getTokenService()
-        .getTokenByAddress(address);
+        .getTokenByAddress(normalizedAddress);
       if (!token) throw new BadRequestError("Token not found");
       const tokenDto = TokenMapper.toTokenDto(token);
       res.json({
@@ -64,16 +65,43 @@ export class TokenMonitorController {
     }
   });
 
+  public static getTokenPriceData = asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { address } = req.params;
+      const normalizedAddress = address.toLowerCase();
+
+      const token = await TokenMonitorManager.getInstance().getTokenService().getTokenByAddress(normalizedAddress);
+      if (!token) {
+        throw new BadRequestError("Controller: Token not found");
+      }
+
+      const { priceUsd, liquidity } = await TokenMonitorManager.getInstance().getTokenPriceData(normalizedAddress);
+      res.json({
+        message: "Token price data",
+        priceUsd,
+        liquidity,
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        const errorMessage = error.message;
+        throw new BadRequestError(errorMessage);
+      } else {
+        throw new InternalServerError("An unknown error occurred");
+      }
+    }
+  });
+
   public static buyToken = asyncHandler(async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
+      const normalizedAddress = address.toLowerCase();
       const { tradeType, usdAmount } = req.body;
       //const { tokenAddress, tradeType, usdAmount } = req.body;
-      const token = await TokenMonitorManager.getInstance().getTokenService().getTokenByAddress(address);
+      const token = await TokenMonitorManager.getInstance().getTokenService().getTokenByAddress(normalizedAddress);
       if (!token) {
         throw new BadRequestError("Token not found");
       }
-      TokenMonitorManager.getInstance().buyToken(address, tradeType, usdAmount);
+      TokenMonitorManager.getInstance().buyToken(normalizedAddress, tradeType, usdAmount);
       if (token.status === "buyable") {
         res.json({
           message: "Checking for honeypot & creating buy transaction...",
@@ -95,8 +123,9 @@ export class TokenMonitorController {
   public static sellToken = asyncHandler(async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
+      const normalizedAddress = address.toLowerCase();
       const { formattedAmount } = req.body;
-      await TokenMonitorManager.getInstance().sellToken(address, formattedAmount);
+      await TokenMonitorManager.getInstance().sellToken(normalizedAddress, formattedAmount);
       res.json({
         message: "Token sold",
       });
@@ -112,7 +141,8 @@ export class TokenMonitorController {
   public static monitorToken = asyncHandler(async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
-      await TokenMonitorManager.getInstance().monitorToken(address);
+      const normalizedAddress = address.toLowerCase();
+      await TokenMonitorManager.getInstance().monitorToken(normalizedAddress);
       res.json({
         message: "Token monitored",
       });
@@ -128,8 +158,9 @@ export class TokenMonitorController {
   public static archiveToken = asyncHandler(async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
+      const normalizedAddress = address.toLowerCase();
       const { reason } = req.body;
-      await TokenMonitorManager.getInstance().archiveToken(address, reason);
+      await TokenMonitorManager.getInstance().archiveToken(normalizedAddress, reason);
       res.json({
         message: "Token archived",
       });

@@ -376,7 +376,7 @@ paths:
                     items:
                       $ref: "#/components/schemas/PositionDto"
 
-  /token-monitor/tokens/:address:
+  /token-monitor/tokens/{address}:
     get:
       summary: Get token by address
       description: Returns a token by its address
@@ -421,7 +421,56 @@ paths:
                   message:
                     type: string
                     example: "Error getting token"
-  /token-monitor/tokens/:address/buy:
+  /token-monitor/tokens/{address}/price-data:
+    get:
+      summary: Get token price data
+      description: Returns the price data for a token
+      tags:
+        - Token Monitoring
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema:
+            type: string
+            description: The address of the token
+      responses:
+        "200":
+          description: Token price data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Token price data"
+                  priceUsd:
+                    type: string
+                    example: "100"
+                  liquidity:
+                    $ref: "#/components/schemas/LiquidityDto"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid token address"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Error getting token price data"
+  /token-monitor/tokens/{address}/buy:
     post:
       summary: Buy token
       description: Executes a token purchase transaction
@@ -484,7 +533,7 @@ paths:
                   message:
                     type: string
                     example: "Error buying token"
-  /token-monitor/tokens/:address/sell:
+  /token-monitor/tokens/{address}/sell:
     post:
       summary: Sell token
       description: Executes a token sell transaction
@@ -541,7 +590,7 @@ paths:
                   message:
                     type: string
                     example: "Error selling token"
-  /token-monitor/tokens/:address/monitor:
+  /token-monitor/tokens/{address}/monitor:
     put:
       summary: Monitor token
       description: monitor a token
@@ -585,7 +634,7 @@ paths:
                   message:
                     type: string
                     example: "Error monitoring token"
-  /token-monitor/tokens/:address/archive:
+  /token-monitor/tokens/{address}/archive:
     put:
       summary: Archive token
       description: Archives a token

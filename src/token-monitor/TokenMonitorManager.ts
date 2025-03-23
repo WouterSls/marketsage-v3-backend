@@ -111,28 +111,20 @@ export class TokenMonitorManager {
     return this.positionService;
   };
 
-  async archiveToken(tokenAddress: string, reason: string): Promise<void> {
-    if (!this.isInitialized) {
-      throw new TokenMonitorManagerError("Token Monitor Manager not initialized");
-    }
-    const token: SelectToken | null = await this.tokenService!.getTokenByAddress(tokenAddress);
+  async getTokenPriceData(tokenAddress: string): Promise<{ priceUsd: string; liquidity: LiquidityDto }> {
+    const token = await this.tokenService!.getTokenByAddress(tokenAddress);
     if (!token) {
-      throw new TokenMonitorManagerError(`Archive failed - No token found for address ${tokenAddress}`);
+      throw new TokenMonitorManagerError(`No token found for address ${tokenAddress}`);
     }
-    let updatedToken: SelectToken | null = null;
-    if (reason.toLowerCase().includes("rugpull")) {
-      updatedToken = await this.tokenService!.updateToken(token.address, { status: "rugpull" });
-    } else if (reason.toLowerCase().includes("honeypot")) {
-      updatedToken = await this.tokenService!.updateToken(token.address, { status: "honeypot" });
-    } else {
-      updatedToken = await this.tokenService!.updateToken(token.address, { status: "archived" });
-    }
+    const erc20 = await createMinimalErc20(token.address, this.provider!);
+    const priceUsd = await this.priceCheckingService!.getTokenPriceUsd(token, erc20);
+    const liquidity: AllProtocolsLiquidity = await this.liquidityCheckingService!.getLiquidity(tokenAddress);
+    const liquidityDto: LiquidityDto = LiquidityMapper.toLiquidityDto(liquidity);
 
-    const tokenDto: TokenDto = TokenMapper.toTokenDto(updatedToken);
-    await this.webhookService!.broadcast("tokenUpdateHook", {
-      tokenAddress: token.address,
-      data: tokenDto,
-    });
+    return {
+      priceUsd: priceUsd.toString(),
+      liquidity: liquidityDto,
+    };
   }
 
   async buyToken(tokenAddress: string, tradeType: TradeType, usdAmount: number): Promise<void> {
@@ -345,6 +337,30 @@ export class TokenMonitorManager {
         }
       }
     }
+  }
+
+  async archiveToken(tokenAddress: string, reason: string): Promise<void> {
+    if (!this.isInitialized) {
+      throw new TokenMonitorManagerError("Token Monitor Manager not initialized");
+    }
+    const token: SelectToken | null = await this.tokenService!.getTokenByAddress(tokenAddress);
+    if (!token) {
+      throw new TokenMonitorManagerError(`Archive failed - No token found for address ${tokenAddress}`);
+    }
+    let updatedToken: SelectToken | null = null;
+    if (reason.toLowerCase().includes("rugpull")) {
+      updatedToken = await this.tokenService!.updateToken(token.address, { status: "rugpull" });
+    } else if (reason.toLowerCase().includes("honeypot")) {
+      updatedToken = await this.tokenService!.updateToken(token.address, { status: "honeypot" });
+    } else {
+      updatedToken = await this.tokenService!.updateToken(token.address, { status: "archived" });
+    }
+
+    const tokenDto: TokenDto = TokenMapper.toTokenDto(updatedToken);
+    await this.webhookService!.broadcast("tokenUpdateHook", {
+      tokenAddress: token.address,
+      data: tokenDto,
+    });
   }
 
   private async setupTokenMonitor(): Promise<void> {
