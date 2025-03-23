@@ -1,4 +1,4 @@
-import { defineConfig } from "drizzle-kit";
+import { Config, defineConfig } from "drizzle-kit";
 
 export default defineConfig({
   dialect: "sqlite",
@@ -7,4 +7,4 @@ export default defineConfig({
   dbCredentials: {
     url: "file:./data/db.sqlite",
   },
-});
+} satisfies Config);
