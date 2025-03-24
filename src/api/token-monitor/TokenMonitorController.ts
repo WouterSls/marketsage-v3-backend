@@ -76,11 +76,16 @@ export class TokenMonitorController {
       }
 
       const { priceUsd, liquidity } = await TokenMonitorManager.getInstance().getTokenPriceData(normalizedAddress);
-      res.json({
-        message: "Token price data",
+      const priceData = {
         priceUsd,
         liquidity,
+      };
+
+      res.json({
+        message: "Token price data",
+        priceData,
       });
+
     } catch (error: unknown) {
       if (error instanceof Error) {
         const errorMessage = error.message;

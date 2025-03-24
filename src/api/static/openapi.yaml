@@ -445,11 +445,14 @@ paths:
                   message:
                     type: string
                     example: "Token price data"
-                  priceUsd:
-                    type: string
-                    example: "100"
-                  liquidity:
-                    $ref: "#/components/schemas/LiquidityDto"
+                  priceData:
+                    type: object
+                    properties:
+                      priceUsd:
+                        type: string
+                        example: "100"
+                      liquidity:
+                        $ref: "#/components/schemas/LiquidityDto"
         "400":
           description: Bad request
           content:
