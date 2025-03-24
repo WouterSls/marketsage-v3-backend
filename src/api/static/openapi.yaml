@@ -812,33 +812,6 @@ paths:
                   message:
                     type: string
                     example: "Error creating webhook subscription"
-  /webhooks/test:
-    post:
-      summary: Broadcast webhook test
-      description: Broadcasts a test token update webhook to all subscribed webhooks
-      tags:
-        - Webhooks
-      responses:
-        "200":
-          description: Test webhook broadcasted
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Webhook test broadcasted"
-        "500":
-          description: Server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Error broadcasting webhook test"
   /webhooks/{id}:
     delete:
       summary: Delete webhook subscription
@@ -893,6 +866,57 @@ paths:
                   message:
                     type: string
                     example: "Error deleting webhook subscription"
+  /webhooks/token-test:
+    post:
+      summary: Broadcast webhook test
+      description: Broadcasts a test token update webhook to all subscribed webhooks
+      tags:
+        - Webhooks
+      responses:
+        "200":
+          description: Test webhook broadcasted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Webhook token update broadcasted"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Error broadcasting webhook test"
+  /webhooks/trade-test:
+    post:
+      summary: Broadcast webhook test
+      description: Broadcasts a test trade receive webhook to all subscribed webhooks
+      tags:
+        - Webhooks
+      responses:
+        "200":
+          description: Test webhook broadcasted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Webhook trade receive broadcasted"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
 
 webhooks:
   # Token Update Webhooks

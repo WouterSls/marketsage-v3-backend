@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { WebhookService } from "../../lib/webhooks/WebhookService";
 import { WebhookEventType } from "../../lib/webhooks/webhook.types";
-import { TokenDto } from "../token-monitor/index";
+import { TokenDto, TradeDto } from "../token-monitor/index";
 
 export class WebhookController {
   private static webhookService = WebhookService.getInstance();
@@ -92,6 +92,36 @@ export class WebhookController {
       await WebhookController.webhookService.broadcast("tokenUpdateHook", {
         tokenAddress: "0x0000000000000000000000000000000000000000",
         data: tokenDto,
+      });
+
+      res.status(200).json({ message: "Webhook test broadcasted" });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.error("Error broadcasting webhook test:", errorMessage);
+      res.status(500).json({ message: "Error broadcasting webhook test" });
+    }
+  }
+
+  static async broadcastTestTradeReceive(req: Request, res: Response): Promise<void> {
+    try {
+      console.log("Broadcasting test trade receive");
+      const tradeDto: TradeDto = {
+        tokenAddress: "0x0000000000000000000000000000000000000000",
+        tokenName: "Test Token",
+        transactionHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
+        status: "buy",
+        type: "earlyExit",
+        ethSpent: "0.2",
+        ethReceived: "0",
+        formattedSellAmount: "0",
+        formattedBuyAmount: "150000",
+        gasCostEth: "0.002",
+        createdAt: Date.now(),
+      };
+
+      await WebhookController.webhookService.broadcast("tradeReceiveHook", {
+        tokenAddress: "0x0000000000000000000000000000000000000000",
+        data: tradeDto,
       });
 
       res.status(200).json({ message: "Webhook test broadcasted" });
