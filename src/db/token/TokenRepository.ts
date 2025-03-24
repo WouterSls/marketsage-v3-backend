@@ -1,6 +1,6 @@
 import { db } from "../../lib/db/db";
 import { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, desc } from "drizzle-orm";
 
 import * as schema from "../../lib/db/schema";
 import { token, TokenStatus } from "../../lib/db/schema";
@@ -47,7 +47,7 @@ export class TokenRepository {
    */
   async getAllTokens(): Promise<SelectToken[]> {
     try {
-      return await this.db.select().from(token);
+      return await this.db.select().from(token).orderBy(desc(token.discoveredAt));
     } catch (error: unknown) {
       console.error("Error getting all tokens", error);
       if (error instanceof TechnicalError) {
@@ -95,7 +95,7 @@ export class TokenRepository {
    */
   async getTokensByStatus(status: TokenStatus): Promise<SelectToken[]> {
     try {
-      return await this.db.select().from(token).where(eq(token.status, status));
+      return await this.db.select().from(token).where(eq(token.status, status)).orderBy(desc(token.discoveredAt));
     } catch (error: unknown) {
       console.error(`Error getting tokens for status: ${status}`, error);
       if (error instanceof TechnicalError) {
@@ -114,7 +114,11 @@ export class TokenRepository {
    */
   async getTokensByStatuses(statuses: TokenStatus[]): Promise<SelectToken[]> {
     try {
-      return await this.db.select().from(token).where(inArray(token.status, statuses));
+      return await this.db
+        .select()
+        .from(token)
+        .where(inArray(token.status, statuses))
+        .orderBy(desc(token.discoveredAt));
     } catch (error: unknown) {
       console.error(`Error getting tokens for statuses: ${statuses.join(", ")}`, error);
       if (error instanceof TechnicalError) {
