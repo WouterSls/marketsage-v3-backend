@@ -10,22 +10,31 @@ import { ERC20, TradingStrategyFactory } from "../../lib/blockchain/index";
 import { SelectToken } from "../../db";
 import { TechnicalError } from "../../lib/errors/TechnicalError";
 
+import { HoneypotCheckResult, HoneypotReason } from "../../token-monitor/models/token-monitor.types";
+
 export class HoneypotCheckingService {
   constructor(
     private wallet: Wallet,
     private chainConfig: ChainConfig,
   ) {}
 
-  async honeypotCheck(token: SelectToken, erc20: ERC20): Promise<{ isHoneypot: boolean; reason: string }> {
+  async honeypotCheck(token: SelectToken, erc20: ERC20): Promise<HoneypotCheckResult> {
+    let result: HoneypotCheckResult = {
+      isHoneypot: false,
+      reason: HoneypotReason.SAFE,
+    };
+
     const skipableStatuses = ["validated", "sold"];
+    const validationStatuses = ["buyable", "archived"];
+
     if (skipableStatuses.includes(token.status)) {
-      return {
-        isHoneypot: false,
-        reason: "Token is validated",
-      };
+      result.isHoneypot = false;
+      result.reason = HoneypotReason.VALIDATED;
+      return result;
     }
-    if (token.status !== "buyable") {
-      throw new HoneypotError("Only buyable tokens can be validated");
+
+    if (!validationStatuses.includes(token.status)) {
+      throw new HoneypotError("Token is not in a valid status");
     }
 
     try {
@@ -36,24 +45,34 @@ export class HoneypotCheckingService {
 
       await this.testSell(token, erc20);
 
-      return {
-        isHoneypot: false,
-        reason: "No honeypot detected",
-      };
+      return result;
     } catch (error) {
-      if (error instanceof HoneypotError) {
-        return {
-          isHoneypot: true,
-          reason: error.message,
-        };
-      }
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message.toLowerCase() : "Unknown error";
+
       if (errorMessage.includes("not implemented")) {
-        return {
-          isHoneypot: false,
-          reason: errorMessage,
-        };
+        result.isHoneypot = false;
+        result.reason = HoneypotReason.NOT_IMPLEMENTED;
+        return result;
       }
+
+      if (errorMessage.includes("buy failed")) {
+        result.isHoneypot = true;
+        result.reason = HoneypotReason.BUY_FAILED;
+        return result;
+      }
+
+      if (errorMessage.includes("no tokens received")) {
+        result.isHoneypot = true;
+        result.reason = HoneypotReason.NO_TOKENS;
+        return result;
+      }
+
+      if (errorMessage.includes("sell simulation failed")) {
+        result.isHoneypot = true;
+        result.reason = HoneypotReason.SELL_FAILED;
+        return result;
+      }
+
       throw new HoneypotError(`Honeypot check failed: ${errorMessage}`);
     }
   }
@@ -72,7 +91,12 @@ export class HoneypotCheckingService {
       throw new HoneypotError(`Test buy failed: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   }
-
+  private async validateBalance(erc20: ERC20) {
+    const balance = await erc20.getRawTokenBalance(this.wallet.address);
+    if (balance <= 0n) {
+      throw new HoneypotError("No tokens received");
+    }
+  }
   private async testSell(token: SelectToken, erc20: ERC20) {
     try {
       const tradingStrategy = TradingStrategyFactory.createStrategy(token.dex, this.wallet, this.chainConfig);
@@ -82,13 +106,6 @@ export class HoneypotCheckingService {
     } catch (error) {
       console.log(error);
       throw new HoneypotError(`Sell simulation failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-    }
-  }
-
-  private async validateBalance(erc20: ERC20) {
-    const balance = await erc20.getRawTokenBalance(this.wallet.address);
-    if (balance <= 0n) {
-      throw new HoneypotError("No tokens received");
     }
   }
 }

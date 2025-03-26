@@ -94,6 +94,72 @@ export class LiquidityCheckingService {
     };
   }
 
+  async validateLiquidity(tokenAddress: string) {
+    const liquidity = await this.getLiquidity(tokenAddress);
+    const hasLiquidity =
+      liquidity.v2Liquidity.exists ||
+      liquidity.v3Liquidity.exists ||
+      liquidity.v4Liquidity.exists ||
+      liquidity.aerodromeLiquidity.exists;
+
+    if (!hasLiquidity) {
+      return {
+        hasLiquidity: false,
+        protocol: null,
+        liquidityETH: "0",
+      };
+    }
+
+    let mostLiquidDex: DEX = null;
+    let maxLiquidityETH = 0n;
+
+    if (liquidity.v2Liquidity.exists && liquidity.v2Liquidity.liquidityEth) {
+      const liquidityETH = BigInt(liquidity.v2Liquidity.liquidityEth);
+      console.log(`Uniswap V2 liquidity: ${ethers.formatEther(liquidityETH)} ETH`);
+
+      if (liquidityETH > maxLiquidityETH && liquidityETH >= this.LIQUIDITY_THRESHOLD) {
+        maxLiquidityETH = liquidityETH;
+        mostLiquidDex = "uniswapv2";
+      }
+    }
+
+    if (liquidity.v3Liquidity.exists && liquidity.v3Liquidity.liquidityEth) {
+      console.log(`Uniswap V3 liquidity: ${ethers.formatEther(liquidity.v3Liquidity.liquidityEth)} ETH`);
+
+      const v3LiquidityETH = BigInt(liquidity.v3Liquidity.liquidityEth);
+
+      if (v3LiquidityETH > maxLiquidityETH && v3LiquidityETH >= this.LIQUIDITY_THRESHOLD) {
+        maxLiquidityETH = v3LiquidityETH;
+        mostLiquidDex = "uniswapv3";
+      }
+    }
+
+    if (liquidity.v4Liquidity.exists && liquidity.v4Liquidity.liquidityEth) {
+      const v4LiquidityETH = BigInt(liquidity.v4Liquidity.liquidityEth);
+      console.log(`Uniswap V4 liquidity: ${ethers.formatEther(v4LiquidityETH)} ETH`);
+
+      if (v4LiquidityETH > maxLiquidityETH && v4LiquidityETH >= this.LIQUIDITY_THRESHOLD) {
+        maxLiquidityETH = v4LiquidityETH;
+        mostLiquidDex = "uniswapv4";
+      }
+    }
+
+    if (liquidity.aerodromeLiquidity.exists && liquidity.aerodromeLiquidity.liquidityEth) {
+      const aerodromeLiquidityETH = BigInt(liquidity.aerodromeLiquidity.liquidityEth);
+      console.log(`Aerodrome liquidity: ${ethers.formatEther(aerodromeLiquidityETH)} ETH`);
+
+      if (aerodromeLiquidityETH > maxLiquidityETH && aerodromeLiquidityETH >= this.LIQUIDITY_THRESHOLD) {
+        maxLiquidityETH = aerodromeLiquidityETH;
+        mostLiquidDex = "aerodrome";
+      }
+    }
+    return {
+      hasLiquidity: hasLiquidity,
+      protocol: mostLiquidDex,
+      liquidityETH: maxLiquidityETH.toString(),
+    };
+  }
+
   async rugpullCheck(token: ActiveToken | SelectToken) {
     const isActiveToken = "protocol" in token && "hasLiquidity" in token;
 

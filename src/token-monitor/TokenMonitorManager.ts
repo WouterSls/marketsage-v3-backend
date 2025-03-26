@@ -19,7 +19,7 @@ import {
   V3TraderError,
   V4TraderError,
 } from "../lib/errors";
-import { TokenMonitorStatistics } from "./models/token-monitor.types";
+import { HoneypotReason, TokenMonitorStatistics } from "./models/token-monitor.types";
 
 export class TokenMonitorManager {
   private static instance: TokenMonitorManager;
@@ -127,6 +127,52 @@ export class TokenMonitorManager {
     };
   }
 
+  async revalidateToken(tokenAddress: string): Promise<void> {
+    if (!this.isInitialized) {
+      throw new TokenMonitorManagerError("Token Monitor Manager not initialized");
+    }
+    const token: SelectToken | null = await this.tokenService!.getTokenByAddress(tokenAddress);
+    if (!token) {
+      throw new TokenMonitorManagerError(`No token found for address ${tokenAddress}`);
+    }
+
+    const { hasLiquidity, protocol } = await this.liquidityCheckingService!.validateLiquidity(tokenAddress);
+    if (!hasLiquidity) {
+      throw new TokenMonitorManagerError("Token has no liquidity");
+    }
+    token.dex = protocol;
+
+    const erc20 = await createMinimalErc20(token.address, this.provider!);
+
+    const honeypotCheckResult = await this.honeypotCheckingService!.honeypotCheck(token, erc20);
+    if (honeypotCheckResult.isHoneypot) {
+      const updatedToken = await this.tokenService!.updateToken(token.address, { status: "honeypot" });
+      const tokenDto: TokenDto = TokenMapper.toTokenDto(updatedToken);
+      await this.webhookService!.broadcast("tokenUpdateHook", {
+        tokenAddress: token.address,
+        data: tokenDto,
+      });
+      this.statistics.honeypotCount++;
+      throw new TokenMonitorManagerError(`Token is a honeypot: ${honeypotCheckResult.reason}`);
+    }
+
+    if (honeypotCheckResult.reason === HoneypotReason.NOT_IMPLEMENTED) {
+      throw new InternalServerError(`Missing implementation in honeypot check: ${honeypotCheckResult.reason}`);
+    }
+
+    if (honeypotCheckResult.reason === HoneypotReason.SAFE) {
+      const updatedToken = await this.tokenService!.updateToken(token.address, {
+        status: "validated",
+        dex: protocol,
+      });
+      const tokenDto: TokenDto = TokenMapper.toTokenDto(updatedToken);
+      await this.webhookService!.broadcast("tokenUpdateHook", {
+        tokenAddress: token.address,
+        data: tokenDto,
+      });
+    }
+  }
+
   async buyToken(tokenAddress: string, tradeType: TradeType, usdAmount: number): Promise<void> {
     if (!this.isInitialized) {
       throw new TokenMonitorManagerError("Token Monitor Manager not initialized");
@@ -185,8 +231,8 @@ export class TokenMonitorManager {
     const erc20 = await createMinimalErc20(token.address, this.provider!);
 
     console.log("Checking for honeypot...");
-    const { isHoneypot, reason } = await this.honeypotCheckingService!.honeypotCheck(token, erc20);
-    if (isHoneypot) {
+    const honeypotCheckResult = await this.honeypotCheckingService!.honeypotCheck(token, erc20);
+    if (honeypotCheckResult.isHoneypot) {
       const updatedToken = await this.tokenService!.updateToken(token.address, { status: "honeypot" });
       const tokenDto: TokenDto = TokenMapper.toTokenDto(updatedToken);
       await this.webhookService!.broadcast("tokenUpdateHook", {
@@ -194,14 +240,14 @@ export class TokenMonitorManager {
         data: tokenDto,
       });
       this.statistics.honeypotCount++;
-      throw new TokenMonitorManagerError(`Token is a honeypot: ${reason}`);
+      throw new TokenMonitorManagerError(`Token is a honeypot: ${honeypotCheckResult.reason}`);
     }
 
-    if (reason.toLowerCase().includes("not implemented")) {
-      throw new InternalServerError(`Missing implementation in honeypot check: ${reason}`);
+    if (honeypotCheckResult.reason === HoneypotReason.NOT_IMPLEMENTED) {
+      throw new InternalServerError(`Missing implementation in honeypot check: ${honeypotCheckResult.reason}`);
     }
 
-    if (!reason.toLowerCase().includes("token is validated")) {
+    if (honeypotCheckResult.reason === HoneypotReason.SAFE) {
       const updatedToken = await this.tokenService!.updateToken(token.address, { status: "validated" });
       const tokenDto: TokenDto = TokenMapper.toTokenDto(updatedToken);
       await this.webhookService!.broadcast("tokenUpdateHook", {
@@ -338,7 +384,6 @@ export class TokenMonitorManager {
       }
     }
   }
-
   async archiveToken(tokenAddress: string, reason: string): Promise<void> {
     if (!this.isInitialized) {
       throw new TokenMonitorManagerError("Token Monitor Manager not initialized");
