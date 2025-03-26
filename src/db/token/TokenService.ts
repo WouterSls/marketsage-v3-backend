@@ -124,7 +124,7 @@ export class TokenService {
     return this.repository.updateToken({
       address,
       ...updates,
-      updatedAt: Math.floor(Date.now() / 1000),
+      updatedAt: Date.now(),
     });
   }
 
