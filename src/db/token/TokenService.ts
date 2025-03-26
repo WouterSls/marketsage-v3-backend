@@ -88,7 +88,7 @@ export class TokenService {
         throw new TechnicalError("Invalid Ethereum address format");
       }
 
-      const nowUnix = Math.floor(Date.now() / 1000);
+      const nowUnix = Date.now();
 
       const tokenInfo: InsertToken = {
         name: tokenName,
