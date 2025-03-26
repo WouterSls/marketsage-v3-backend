@@ -192,6 +192,20 @@ export class TokenMonitorController {
       }
     }
   });
+  public static revalidateToken = asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { address } = req.params;
+      const normalizedAddress = address.toLowerCase();
+      await TokenMonitorManager.getInstance().revalidateToken(normalizedAddress);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        const errorMessage = error.message;
+        throw new BadRequestError(errorMessage);
+      } else {
+        throw new InternalServerError("An unknown error occurred");
+      }
+    }
+  });
 
   public static getTrades = asyncHandler(async (req: Request, res: Response) => {
     try {

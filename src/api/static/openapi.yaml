@@ -738,6 +738,49 @@ paths:
                 properties:
                   message:
                     type: string
+  /token-monitor/tokens/{address}/revalidate:
+    put:
+      summary: Revalidate token
+      description: Revalidates a token
+      tags:
+        - Token Monitoring
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema:
+            type: string
+            description: The address of the token
+      responses:
+        "200":
+          description: Token revalidated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Token revalidated successfully"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid token address"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
 
   # Data Endpoints
   /data/statistics:
