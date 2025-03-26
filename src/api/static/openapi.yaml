@@ -1190,6 +1190,9 @@ components:
         discoveredAt:
           type: number
           description: Timestamp when the token was discovered (in milliseconds)
+        updatedAt:
+          type: number
+          description: Timestamp when the token was last updated (in milliseconds)
     TradeDto:
       type: object
       properties:

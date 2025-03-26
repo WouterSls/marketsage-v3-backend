@@ -12,6 +12,7 @@ export class TokenMapper {
       dex: token.dex,
       isSuspicious: token.isSuspicious,
       discoveredAt: token.discoveredAt,
+      updatedAt: token.updatedAt,
     };
   }
 }

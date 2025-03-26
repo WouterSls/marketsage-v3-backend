@@ -9,4 +9,5 @@ export interface TokenDto {
   dex: DexType;
   isSuspicious: boolean;
   discoveredAt: number;
+  updatedAt: number;
 }
