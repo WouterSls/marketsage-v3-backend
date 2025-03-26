@@ -4,6 +4,7 @@ import { TokenMonitorController } from "./TokenMonitorController";
 const router = Router();
 
 router.get("/token-monitor/tokens/:address", TokenMonitorController.getTokenByAddress);
+router.delete("/token-monitor/tokens/:address", TokenMonitorController.deleteToken);
 router.get("/token-monitor/tokens/:address/price-data", TokenMonitorController.getTokenPriceData);
 
 router.post("/token-monitor/tokens/:address/buy", TokenMonitorController.buyToken);

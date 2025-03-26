@@ -33,7 +33,6 @@ export class TokenMonitorController {
       }
     }
   });
-
   public static getTokens = asyncHandler(async (req: Request, res: Response) => {
     try {
       let tokens: SelectToken[];
@@ -64,7 +63,6 @@ export class TokenMonitorController {
       }
     }
   });
-
   public static getTokenPriceData = asyncHandler(async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
@@ -84,6 +82,23 @@ export class TokenMonitorController {
       res.json({
         message: "Token price data",
         priceData,
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        const errorMessage = error.message;
+        throw new BadRequestError(errorMessage);
+      } else {
+        throw new InternalServerError("An unknown error occurred");
+      }
+    }
+  });
+  public static deleteToken = asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { address } = req.params;
+      const normalizedAddress = address.toLowerCase();
+      await TokenMonitorManager.getInstance().getTokenService().deleteToken(normalizedAddress);
+      res.json({
+        message: "Token deleted",
       });
     } catch (error: unknown) {
       if (error instanceof Error) {

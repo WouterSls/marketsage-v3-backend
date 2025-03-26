@@ -129,6 +129,15 @@ export class TokenService {
   }
 
   /**
+   * Deletes a token by its address
+   * @param address - The address of the token to delete
+   * @returns Promise resolving to the deleted token
+   */
+  async deleteToken(address: string): Promise<SelectToken> {
+    return this.repository.deleteToken(address);
+  }
+
+  /**
    * Archives a token by setting its status to "archived"
    * @param address - The address of the token to archive
    * @returns Promise resolving to the archived token

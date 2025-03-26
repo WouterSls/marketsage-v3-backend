@@ -190,4 +190,25 @@ export class TokenRepository {
       throw new TechnicalError(errorMessage);
     }
   }
+
+  /**
+   * Deletes a token by its address
+   * @param address - The address of the token to delete
+   * @returns Promise resolving to the deleted token
+   */
+  async deleteToken(address: string): Promise<SelectToken> {
+    try {
+      const result = await this.db.delete(token).where(eq(token.address, address)).returning();
+      if (result.length === 0) {
+        throw new TechnicalError(`Token not found with address: ${address}`);
+      }
+      return result[0];
+    } catch (error: unknown) {
+      console.error("Error deleting token", error);
+      if (error instanceof TechnicalError) {
+        throw error;
+      }
+      throw new TechnicalError("Error deleting token");
+    }
+  }
 }
