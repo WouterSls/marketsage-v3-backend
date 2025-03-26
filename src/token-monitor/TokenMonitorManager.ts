@@ -9,7 +9,7 @@ import { MONITOR_CONFIG } from "./config/monitor-config";
 import { TokenMonitoringQueueService } from "./queue/TokenMonitoringQueueService";
 import { PriceCheckingService } from "./services/PriceCheckingService";
 
-import { token, TokenStatus, TradeType } from "../lib/db/schema";
+import { TokenStatus, TradeType } from "../lib/db/schema";
 import { WebhookService } from "../lib/webhooks/WebhookService";
 import { TokenDto, TokenMapper } from "../api/token-monitor/index";
 import {
