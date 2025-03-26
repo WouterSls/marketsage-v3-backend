@@ -375,7 +375,51 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/PositionDto"
-
+  /token-monitor/positions/{address}:
+    get:
+      summary: Get position by token address
+      description: Returns a position by token address
+      tags:
+        - Token Monitoring
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema:
+            type: string
+            description: The address of the token
+      responses:
+        "200":
+          description: Position
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  position:
+                    $ref: "#/components/schemas/PositionDto"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid token address"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Error getting position"
   /token-monitor/tokens/{address}:
     get:
       summary: Get token by address

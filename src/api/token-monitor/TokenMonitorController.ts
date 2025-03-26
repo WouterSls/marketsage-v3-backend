@@ -85,7 +85,6 @@ export class TokenMonitorController {
         message: "Token price data",
         priceData,
       });
-
     } catch (error: unknown) {
       if (error instanceof Error) {
         const errorMessage = error.message;
@@ -226,6 +225,30 @@ export class TokenMonitorController {
       res.json({
         message: "Active positions",
         positions: positionsDto,
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        const errorMessage = error.message;
+        throw new BadRequestError(errorMessage);
+      } else {
+        throw new InternalServerError("An unknown error occurred");
+      }
+    }
+  });
+  public static getPositionByTokenAddress = asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { address } = req.params;
+      const normalizedAddress = address.toLowerCase();
+      const position: SelectPosition | null = await TokenMonitorManager.getInstance()
+        .getPositionService()
+        .getPosition(normalizedAddress);
+      if (!position) {
+        throw new BadRequestError("Position not found");
+      }
+      const positionDto: PositionDto = PositionMapper.toPositionDto(position);
+      res.json({
+        message: "Position",
+        position: positionDto,
       });
     } catch (error: unknown) {
       if (error instanceof Error) {

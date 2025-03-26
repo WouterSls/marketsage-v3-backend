@@ -15,5 +15,6 @@ router.get("/token-monitor/tokens", TokenMonitorController.getTokens);
 router.get("/token-monitor/trades", TokenMonitorController.getTrades);
 router.get("/token-monitor/positions", TokenMonitorController.getPositions);
 router.get("/token-monitor/active-positions", TokenMonitorController.getActivePositions);
+router.get("/token-monitor/positions/:address", TokenMonitorController.getPositionByTokenAddress);
 
 export default router;
