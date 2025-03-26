@@ -87,6 +87,7 @@ export class WebhookController {
         creatorAddress: "0x0000000000000000000000000000000000000000",
         isSuspicious: false,
         discoveredAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       await WebhookController.webhookService.broadcast("tokenUpdateHook", {
