@@ -77,20 +77,22 @@ export class UniswapV2Strategy implements ITradingStrategy {
   }
   async testBuy(erc20: ERC20, usdAmount: number): Promise<void> {
     let attempt = 0;
-    try {
-      const tradeSuccessInfo = await this.uniswapV2Router.swapEthInUsdForToken(erc20, usdAmount);
+    while (true) {
+      try {
+        const tradeSuccessInfo = await this.uniswapV2Router.swapEthInUsdForToken(erc20, usdAmount);
 
-      console.log(`V2 Trader: Test buy successful | tx: ${tradeSuccessInfo.transactionHash}`);
-      return;
-    } catch (error: any) {
-      attempt++;
+        console.log(`V2 Trader: Test buy successful | tx: ${tradeSuccessInfo.transactionHash}`);
+        return;
+      } catch (error: any) {
+        attempt++;
 
-      if (!this.shouldRetry(error, attempt)) {
-        throw new V2TraderError(`Buy failed: ${error}`);
+        if (!this.shouldRetry(error, attempt)) {
+          throw new V2TraderError(`Buy failed: ${error}`);
+        }
+
+        console.log(`Buy failed, attempt ${attempt}/${TRADING_CONFIG.MAX_RETRIES}. Retrying...`);
+        await sleep(1);
       }
-
-      console.log(`Buy failed, attempt ${attempt}/${TRADING_CONFIG.MAX_RETRIES}. Retrying...`);
-      await sleep(1);
     }
   }
 

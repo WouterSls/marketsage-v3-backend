@@ -200,6 +200,7 @@ export class TokenMonitorManager {
     }
   }
   private async validateBuy(tokenAddress: string, tradeType: TradeType): Promise<{ token: SelectToken; erc20: ERC20 }> {
+    console.log("Validating buy for token:", tokenAddress);
     const token: SelectToken | null = await this.tokenService!.getTokenByAddress(tokenAddress);
     if (!token) {
       throw new TokenMonitorManagerError(`No validated token found for address ${tokenAddress}`);
