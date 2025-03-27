@@ -9,7 +9,6 @@ export interface LiquidityInfo {
 export interface LiquidityInfoV3 {
   exists: boolean;
   liquidityEth: string;
-  tick: string;
   poolAddress: string;
   feeTier: number;
 }
@@ -24,18 +23,15 @@ export interface AllProtocolsLiquidity {
   v3Liquidity: {
     exists: boolean;
     liquidityEth: string;
-    tick: string;
     poolAddress: string;
     feeTier: number;
   };
   v4Liquidity: {
     exists: boolean;
     liquidityEth: string;
-    tick: string;
   };
   aerodromeLiquidity: {
     exists: boolean;
     liquidityEth: string;
-    tick: string;
   };
 }

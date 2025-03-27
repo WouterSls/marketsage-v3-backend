@@ -154,7 +154,7 @@ export class TokenSecurityValidator {
 
       console.log(`\nStarting Liquidity Detection for ${activeToken.erc20.getName()}...`);
       console.log("--------------------------------");
-      const { hasLiquidity } = await this.liquidityCheckingService!.validateInitialLiquidity(activeToken);
+      const { hasLiquidity } = await this.liquidityCheckingService!.validateLiquidity(activeToken);
       if (!hasLiquidity) {
         console.log(`No initial liquidity found`);
         return;

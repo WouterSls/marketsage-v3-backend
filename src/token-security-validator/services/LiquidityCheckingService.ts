@@ -1,4 +1,5 @@
 import { ethers, Provider } from "ethers";
+import NodeCache from "node-cache";
 
 import { ChainConfig } from "../../lib/blockchain/config/chain-config";
 
@@ -18,6 +19,8 @@ export class LiquidityCheckingService {
   private readonly LIQUIDITY_THRESHOLD = ethers.parseEther(SECURITY_VALIDATOR_CONFIG.MIN_ETH_LIQUIDITY);
   private readonly RUGPULL_LIQUIDITY_THRESHOLD = (this.LIQUIDITY_THRESHOLD * 20n) / 100n;
 
+  private readonly poolAddressCache = new NodeCache();
+
   constructor(
     private readonly provider: Provider,
     chainConfig: ChainConfig,
@@ -26,16 +29,23 @@ export class LiquidityCheckingService {
     this.WETH_ADDRESS = chainConfig.tokenAddresses.weth ?? null;
     this.UNI_V3_FACTORY_ADDRESS = chainConfig.uniswapV3?.factoryAddress ?? null;
 
+    this.poolAddressCache = new NodeCache({
+      stdTTL: 60 * 60, // 1 hour
+      checkperiod: 60 * 60, // 1 hour
+    });
+
     if (!this.UNI_V2_FACTORY_ADDRESS || !this.WETH_ADDRESS || !this.UNI_V3_FACTORY_ADDRESS) {
       throw new TechnicalError("Missing required addresses in chain config");
     }
   }
 
-  async validateInitialLiquidity(activeToken: ActiveToken): Promise<LiquidityInfo> {
-    const v2Liquidity = await this.checkV2Liquidity(activeToken.address);
-    const v3Liquidity = await this.checkV3Liquidity(activeToken.address);
-    const v4Liquidity = await this.checkV4Liquidity(activeToken.address);
-    const aerodromeLiquidity = await this.checkAerodromeLiquidity(activeToken.address);
+  async validateLiquidity(tokenOrAddress: ActiveToken | string): Promise<LiquidityInfo> {
+    const tokenAddress = typeof tokenOrAddress === "string" ? tokenOrAddress : tokenOrAddress.address;
+
+    const v2Liquidity = await this.checkV2Liquidity(tokenAddress);
+    const v3Liquidity = await this.checkV3Liquidity(tokenAddress);
+    const v4Liquidity = await this.checkV4Liquidity(tokenAddress);
+    const aerodromeLiquidity = await this.checkAerodromeLiquidity(tokenAddress);
 
     let mostLiquidDex: DEX = null;
     let maxLiquidityETH = 0n;
@@ -52,7 +62,6 @@ export class LiquidityCheckingService {
 
     if (v3Liquidity.exists && v3Liquidity.liquidityEth) {
       console.log(`Uniswap V3 liquidity: ${ethers.formatEther(v3Liquidity.liquidityEth)} ETH`);
-
       const v3LiquidityETH = BigInt(v3Liquidity.liquidityEth);
 
       if (v3LiquidityETH > maxLiquidityETH && v3LiquidityETH >= this.LIQUIDITY_THRESHOLD) {
@@ -83,78 +92,15 @@ export class LiquidityCheckingService {
 
     if (mostLiquidDex) {
       console.log(`Most liquid dex: ${mostLiquidDex} (${ethers.formatEther(maxLiquidityETH)} ETH)`);
-      activeToken.hasLiquidity = true;
-      activeToken.protocol = mostLiquidDex;
+
+      if (typeof tokenOrAddress !== "string") {
+        tokenOrAddress.hasLiquidity = true;
+        tokenOrAddress.protocol = mostLiquidDex;
+      }
     }
 
     return {
-      hasLiquidity: activeToken.hasLiquidity,
-      protocol: activeToken.protocol,
-      liquidityETH: maxLiquidityETH.toString(),
-    };
-  }
-
-  async validateLiquidity(tokenAddress: string) {
-    const liquidity = await this.getLiquidity(tokenAddress);
-    const hasLiquidity =
-      liquidity.v2Liquidity.exists ||
-      liquidity.v3Liquidity.exists ||
-      liquidity.v4Liquidity.exists ||
-      liquidity.aerodromeLiquidity.exists;
-
-    if (!hasLiquidity) {
-      return {
-        hasLiquidity: false,
-        protocol: null,
-        liquidityETH: "0",
-      };
-    }
-
-    let mostLiquidDex: DEX = null;
-    let maxLiquidityETH = 0n;
-
-    if (liquidity.v2Liquidity.exists && liquidity.v2Liquidity.liquidityEth) {
-      const liquidityETH = BigInt(liquidity.v2Liquidity.liquidityEth);
-      console.log(`Uniswap V2 liquidity: ${ethers.formatEther(liquidityETH)} ETH`);
-
-      if (liquidityETH > maxLiquidityETH && liquidityETH >= this.LIQUIDITY_THRESHOLD) {
-        maxLiquidityETH = liquidityETH;
-        mostLiquidDex = "uniswapv2";
-      }
-    }
-
-    if (liquidity.v3Liquidity.exists && liquidity.v3Liquidity.liquidityEth) {
-      console.log(`Uniswap V3 liquidity: ${ethers.formatEther(liquidity.v3Liquidity.liquidityEth)} ETH`);
-
-      const v3LiquidityETH = BigInt(liquidity.v3Liquidity.liquidityEth);
-
-      if (v3LiquidityETH > maxLiquidityETH && v3LiquidityETH >= this.LIQUIDITY_THRESHOLD) {
-        maxLiquidityETH = v3LiquidityETH;
-        mostLiquidDex = "uniswapv3";
-      }
-    }
-
-    if (liquidity.v4Liquidity.exists && liquidity.v4Liquidity.liquidityEth) {
-      const v4LiquidityETH = BigInt(liquidity.v4Liquidity.liquidityEth);
-      console.log(`Uniswap V4 liquidity: ${ethers.formatEther(v4LiquidityETH)} ETH`);
-
-      if (v4LiquidityETH > maxLiquidityETH && v4LiquidityETH >= this.LIQUIDITY_THRESHOLD) {
-        maxLiquidityETH = v4LiquidityETH;
-        mostLiquidDex = "uniswapv4";
-      }
-    }
-
-    if (liquidity.aerodromeLiquidity.exists && liquidity.aerodromeLiquidity.liquidityEth) {
-      const aerodromeLiquidityETH = BigInt(liquidity.aerodromeLiquidity.liquidityEth);
-      console.log(`Aerodrome liquidity: ${ethers.formatEther(aerodromeLiquidityETH)} ETH`);
-
-      if (aerodromeLiquidityETH > maxLiquidityETH && aerodromeLiquidityETH >= this.LIQUIDITY_THRESHOLD) {
-        maxLiquidityETH = aerodromeLiquidityETH;
-        mostLiquidDex = "aerodrome";
-      }
-    }
-    return {
-      hasLiquidity: hasLiquidity,
+      hasLiquidity: !!mostLiquidDex,
       protocol: mostLiquidDex,
       liquidityETH: maxLiquidityETH.toString(),
     };
@@ -307,7 +253,6 @@ export class LiquidityCheckingService {
       const pairContract = new ethers.Contract(pairAddress, pairInterface, this.provider);
       const reserves = await pairContract.getReserves();
 
-      // Determine token order
       const token0 = tokenAddress.toLowerCase() < this.WETH_ADDRESS!.toLowerCase() ? tokenAddress : this.WETH_ADDRESS;
       const [reserveToken, reserveETH] =
         token0 === tokenAddress ? [reserves[0], reserves[1]] : [reserves[1], reserves[0]];
@@ -329,120 +274,79 @@ export class LiquidityCheckingService {
 
   private async checkV3Liquidity(tokenAddress: string): Promise<LiquidityInfoV3> {
     try {
-      const factoryInterface = new ethers.Interface([
-        "function getPool(address tokenA, address tokenB, uint24 fee) view returns (address pool)",
-      ]);
-
-      const factoryContract = new ethers.Contract(this.UNI_V3_FACTORY_ADDRESS!, factoryInterface, this.provider);
-
-      const feeTiers = [100, 500, 3000, 10000]; // 0.01%, 0.05%, 0.3%, 1%
-      let bestPool: LiquidityInfoV3 = {
+      const bestPool: LiquidityInfoV3 = {
         exists: false,
         liquidityEth: "0",
-        tick: "0",
         poolAddress: ethers.ZeroAddress,
         feeTier: 0,
       };
 
+      const factoryInterface = new ethers.Interface([
+        "function getPool(address tokenA, address tokenB, uint24 fee) view returns (address pool)",
+      ]);
+      const factoryContract = new ethers.Contract(this.UNI_V3_FACTORY_ADDRESS!, factoryInterface, this.provider);
+
+      const feeTiers = [100, 500, 3000, 10000]; // 0.01%, 0.05%, 0.3%, 1%
       for (const feeTier of feeTiers) {
-        try {
-          let poolAddress = null;
-          try {
-            poolAddress = await factoryContract.getPool(tokenAddress, this.WETH_ADDRESS, feeTier);
-          } catch (error) {
-            continue;
-          }
+        const poolAddress = await this.getV3PoolAddress(factoryContract, tokenAddress, feeTier);
+        if (!poolAddress) continue;
 
-          if (poolAddress !== ethers.ZeroAddress) {
-            const poolInfo = await this.checkV3Pool(poolAddress, feeTier);
-            const currentLiquidity = BigInt(poolInfo.liquidityEth || "0");
-            const bestLiquidity = BigInt(bestPool.liquidityEth || "0");
+        const wethBalance = await this.getPoolWethBalance(poolAddress);
+        if (wethBalance < this.LIQUIDITY_THRESHOLD) continue;
 
-            if (poolInfo.exists && currentLiquidity > bestLiquidity) {
-              bestPool = poolInfo;
-            }
-          }
-        } catch (error: unknown) {
-          const errorMessage = error instanceof Error ? error.message : "Unknown error";
-          console.error(`${tokenAddress} - ${errorMessage}`);
-          continue;
+        const bestLiquidity = BigInt(bestPool.liquidityEth || "0");
+        if (wethBalance > bestLiquidity) {
+          bestPool.exists = true;
+          bestPool.liquidityEth = wethBalance.toString();
+          bestPool.poolAddress = poolAddress;
+          bestPool.feeTier = feeTier;
         }
       }
 
-      if (bestPool.exists && BigInt(bestPool.liquidityEth) <= this.RUGPULL_LIQUIDITY_THRESHOLD) {
-        return {
-          exists: false,
-          liquidityEth: bestPool.liquidityEth,
-          tick: bestPool.tick.toString(),
-          poolAddress: bestPool.poolAddress,
-          feeTier: bestPool.feeTier,
-        };
-      }
-
-      return {
-        exists: bestPool.exists,
-        liquidityEth: bestPool.liquidityEth,
-        tick: bestPool.tick.toString(),
-        poolAddress: bestPool.poolAddress,
-        feeTier: bestPool.feeTier,
-      };
-    } catch (error: any) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      console.error(`${tokenAddress} - ${errorMessage}`);
-      return { exists: false, liquidityEth: "0", tick: "0", poolAddress: ethers.ZeroAddress, feeTier: 0 };
-    }
-  }
-  private async checkV3Pool(poolAddress: string, feeTier: number) {
-    try {
-      const poolInterface = new ethers.Interface([
-        "function liquidity() view returns (uint128)",
-        "function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)",
-        "function token0() view returns (address)",
-        "function token1() view returns (address)",
-      ]);
-
-      const erc20Interface = new ethers.Interface(["function balanceOf(address) view returns (uint256)"]);
-
-      const poolContract = new ethers.Contract(poolAddress, poolInterface, this.provider);
-      const [token0Address, token1Address, slot0] = await Promise.all([
-        poolContract.token0(),
-        poolContract.token1(),
-        poolContract.slot0(),
-      ]);
-
-      if (slot0.sqrtPriceX96 === 0n) {
-        return {
-          exists: false,
-          liquidityEth: "0",
-          tick: 0,
-          poolAddress,
-          feeTier,
-        };
-      }
-
-      const wethAddress = this.WETH_ADDRESS!.toLowerCase();
-      const isToken0WETH = token0Address.toLowerCase() === wethAddress;
-      const wethTokenAddress = isToken0WETH ? token0Address : token1Address;
-
-      const wethContract = new ethers.Contract(wethTokenAddress, erc20Interface, this.provider);
-      const wethBalance = await wethContract.balanceOf(poolAddress);
-
-      return {
-        exists: true,
-        liquidityEth: wethBalance.toString(),
-        tick: slot0.tick,
-        poolAddress,
-        feeTier,
-      };
+      return bestPool;
     } catch (error) {
-      console.warn(`Error checking V3 liquidity for pool ${poolAddress}:`, error);
+      console.error(
+        `Error checking V3 liquidity for ${tokenAddress}: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
       return {
         exists: false,
         liquidityEth: "0",
-        tick: 0,
-        poolAddress,
-        feeTier,
+        poolAddress: ethers.ZeroAddress,
+        feeTier: 0,
       };
+    }
+  }
+
+  private async getV3PoolAddress(
+    factoryContract: ethers.Contract,
+    tokenAddress: string,
+    feeTier: number,
+  ): Promise<string | null> {
+    const cacheKey = `pool_${tokenAddress.toLowerCase()}_${this.WETH_ADDRESS!.toLowerCase()}_${feeTier}`;
+
+    let poolAddress = this.poolAddressCache.get<string>(cacheKey);
+    if (poolAddress !== undefined) return poolAddress;
+
+    try {
+      poolAddress = await factoryContract.getPool(tokenAddress, this.WETH_ADDRESS, feeTier);
+      if (poolAddress === ethers.ZeroAddress || poolAddress === undefined) {
+        return null;
+      }
+      this.poolAddressCache.set(cacheKey, poolAddress);
+      return poolAddress;
+    } catch (error) {
+      console.warn(`Failed to get V3 pool for token ${tokenAddress} with fee ${feeTier}`);
+      return null;
+    }
+  }
+  private async getPoolWethBalance(poolAddress: string): Promise<bigint> {
+    try {
+      const erc20Interface = new ethers.Interface(["function balanceOf(address) view returns (uint256)"]);
+      const wethContract = new ethers.Contract(this.WETH_ADDRESS!, erc20Interface, this.provider);
+      return await wethContract.balanceOf(poolAddress);
+    } catch (error) {
+      console.warn(`Error getting WETH balance for pool ${poolAddress}:`, error);
+      return 0n;
     }
   }
 
@@ -450,7 +354,6 @@ export class LiquidityCheckingService {
     return {
       exists: false,
       liquidityEth: "0",
-      tick: "0",
     };
   }
 
@@ -458,7 +361,6 @@ export class LiquidityCheckingService {
     return {
       exists: false,
       liquidityEth: "0",
-      tick: "0",
     };
   }
 }
