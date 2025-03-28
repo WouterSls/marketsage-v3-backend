@@ -1,4 +1,4 @@
-import { Provider, Wallet } from "ethers";
+import { ethers, Provider, Wallet } from "ethers";
 
 import { SelectPosition, PositionService, SelectToken, TokenService, SelectTrade, TradeService } from "../db";
 import { ChainConfig, ERC20, TradingStrategyFactory, createMinimalErc20 } from "../lib/blockchain";
@@ -20,6 +20,19 @@ import {
   V4TraderError,
 } from "../lib/errors";
 import { HoneypotReason, TokenMonitorStatistics } from "./models/token-monitor.types";
+
+export interface TokenData {
+  name: string;
+  symbol: string;
+  status: TokenStatus;
+  address: string;
+  creatorAddress: string;
+  priceUsd: string;
+  ethLiquidity: string;
+  dex: string;
+  discoveredAt: number;
+  updatedAt: number;
+}
 
 export class TokenMonitorManager {
   private static instance: TokenMonitorManager;
@@ -75,10 +88,10 @@ export class TokenMonitorManager {
     this.priceCheckingService = new PriceCheckingService(config.provider, config.chainConfig);
     this.honeypotCheckingService = new HoneypotCheckingService(config.wallet, config.chainConfig);
 
-    this.setupTokenMonitor();
+    await this.setupTokenMonitor();
 
-    console.log("Token Monitor Manager initialized");
     this.isInitialized = true;
+    console.log("Token Monitor Manager initialized");
   }
 
   getStatistics(): TokenMonitorStatistics {
@@ -125,6 +138,68 @@ export class TokenMonitorManager {
       priceUsd: priceUsd.toString(),
       liquidity: liquidityDto,
     };
+  }
+
+  async getTokenData(tokenAddress: string): Promise<TokenData> {
+    const token = await this.tokenService!.getTokenByAddress(tokenAddress);
+    if (!token) {
+      throw new TokenMonitorManagerError(`No token found for address ${tokenAddress}`);
+    }
+    const erc20 = await createMinimalErc20(token.address, this.provider!);
+    let priceUsd = 0;
+    try {
+      priceUsd = await this.priceCheckingService!.getTokenPriceUsd(token, erc20);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.error(`Error getting token price for token ${tokenAddress}`);
+    }
+    const liquidity: AllProtocolsLiquidity = await this.liquidityCheckingService!.getLiquidity(tokenAddress);
+    const liquidityDto: LiquidityDto = LiquidityMapper.toLiquidityDto(liquidity);
+    const { dex, ethDepth } = this.getMostLiquidDex(liquidity);
+
+    const tokenData: TokenData = {
+      name: token.name,
+      symbol: token.symbol,
+      status: token.status,
+      address: token.address,
+      creatorAddress: token.creatorAddress,
+      priceUsd: priceUsd.toString(),
+      ethLiquidity: ethers.formatEther(ethDepth),
+      dex: dex,
+      discoveredAt: token.discoveredAt,
+      updatedAt: token.updatedAt,
+    };
+    return tokenData;
+  }
+  private getMostLiquidDex(liquidity: AllProtocolsLiquidity): { dex: string; ethDepth: string } {
+    let maxDepth = "0";
+    let bestDex = "unknown";
+
+    // Check UniswapV2
+    if (liquidity.v2Liquidity.exists && liquidity.v2Liquidity.liquidityEth) {
+      maxDepth = liquidity.v2Liquidity.liquidityEth;
+      bestDex = "uniswapv2";
+    }
+
+    // Check UniswapV3
+    if (liquidity.v3Liquidity.exists && liquidity.v3Liquidity.liquidityEth) {
+      // Compare with current best depth
+      if (parseFloat(liquidity.v3Liquidity.liquidityEth) > parseFloat(maxDepth)) {
+        maxDepth = liquidity.v3Liquidity.liquidityEth;
+        bestDex = "uniswapv3";
+      }
+    }
+
+    // Check UniswapV4
+    if (liquidity.v4Liquidity.exists && liquidity.v4Liquidity.liquidityEth) {
+      // Compare with current best depth
+      if (parseFloat(liquidity.v4Liquidity.liquidityEth) > parseFloat(maxDepth)) {
+        maxDepth = liquidity.v4Liquidity.liquidityEth;
+        bestDex = "uniswapv4";
+      }
+    }
+
+    return { dex: bestDex, ethDepth: maxDepth };
   }
 
   async revalidateToken(tokenAddress: string): Promise<void> {
@@ -325,14 +400,17 @@ export class TokenMonitorManager {
       return;
     }
 
-    const priceUsd = await this.priceCheckingService!.getTokenPriceUsd(token, erc20);
+    try {
+      const priceUsd = await this.priceCheckingService!.getTokenPriceUsd(token, erc20);
+    } catch (error) {}
     const liquidity: AllProtocolsLiquidity = await this.liquidityCheckingService!.getLiquidity(tokenAddress);
     const liquidityDto: LiquidityDto = LiquidityMapper.toLiquidityDto(liquidity);
 
     await this.webhookService!.broadcast("priceUpdateHook", {
       tokenAddress: token.address,
       data: {
-        priceUsd: priceUsd.toString(),
+        //priceUsd: priceUsd.toString(),
+        priceUsd: "0",
         liquidity: liquidityDto,
       },
     });
@@ -344,11 +422,9 @@ export class TokenMonitorManager {
      *  - token to position (one to one)
      *  - buyTrade to sellTrade (one to many) || sellTrade counter on trade entity?
      *  - token entity should not have a sold status, it should have a balance boolean?
-     */
     const tradesToEvaulate: SelectTrade[] = await this.tradeService!.getBuyTradesForToken(tokenAddress);
     for (const trade of tradesToEvaulate) {
       const tradeType = trade.type;
-
       if (tradeType == "doubleExit") {
         console.log("Executing double exit sell strategy for token:", token.name);
         const tokenPosition = await this.positionService!.getPosition(token.address);
@@ -384,6 +460,7 @@ export class TokenMonitorManager {
         }
       }
     }
+     */
   }
   async archiveToken(tokenAddress: string, reason: string): Promise<void> {
     if (!this.isInitialized) {
@@ -421,10 +498,6 @@ export class TokenMonitorManager {
     }, MONITOR_CONFIG.ALL_TOKEN_MONITOR_INTERVAL);
   }
   private async activeTokenIdentification(): Promise<void> {
-    if (!this.isInitialized) {
-      throw new TokenMonitorManagerError("Token Monitor Manager not initialized");
-    }
-
     try {
       const positionService = this.getPositionService();
       const activePositions: SelectPosition[] = await positionService.getActivePositions();
@@ -454,10 +527,6 @@ export class TokenMonitorManager {
     }
   }
   private async allTokenIdentification(): Promise<void> {
-    if (!this.isInitialized) {
-      throw new TokenMonitorManagerError("Token Monitor Manager not initialized");
-    }
-
     try {
       const statusList: TokenStatus[] = ["buyable", "validated", "sold"];
       const tokens = await this.tokenService!.getTokensByStatuses(statusList);

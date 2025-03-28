@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { asyncHandler } from "../../lib/middlewares";
 import { BadRequestError, InternalServerError } from "../../lib/errors/ApiError";
 
-import { TokenMonitorManager } from "../../token-monitor/TokenMonitorManager";
+import { TokenData, TokenMonitorManager } from "../../token-monitor/TokenMonitorManager";
 
 import { PositionMapper, PositionDto, TokenDto, TokenMapper, TradeDto, TradeMapper } from "./index";
 
@@ -33,6 +33,25 @@ export class TokenMonitorController {
       }
     }
   });
+  public static getTokenData = asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { address } = req.params;
+      const normalizedAddress = address.toLowerCase();
+      const tokenData = await TokenMonitorManager.getInstance().getTokenData(normalizedAddress);
+      res.json({
+        message: "Token data",
+        tokenData: tokenData,
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        const errorMessage = error.message;
+        throw new BadRequestError(errorMessage);
+      } else {
+        throw new InternalServerError("An unknown error occurred");
+      }
+    }
+  });
+
   public static getTokens = asyncHandler(async (req: Request, res: Response) => {
     try {
       let tokens: SelectToken[];
@@ -63,6 +82,29 @@ export class TokenMonitorController {
       }
     }
   });
+  public static getTokensData = asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const activeStatuses: TokenStatus[] = ["buyable", "validated", "sold"];
+      const tokens = await TokenMonitorManager.getInstance().getTokenService().getTokensByStatuses(activeStatuses);
+      const tokensData: TokenData[] = [];
+      for (const token of tokens) {
+        const tokenData = await TokenMonitorManager.getInstance().getTokenData(token.address);
+        tokensData.push(tokenData);
+      }
+      res.json({
+        message: "Tokens data",
+        tokensData: tokensData,
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        const errorMessage = error.message;
+        throw new BadRequestError(errorMessage);
+      } else {
+        throw new InternalServerError("An unknown error occurred");
+      }
+    }
+  });
+
   public static getTokenPriceData = asyncHandler(async (req: Request, res: Response) => {
     try {
       const { address } = req.params;

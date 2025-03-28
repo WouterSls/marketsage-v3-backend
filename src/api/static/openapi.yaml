@@ -314,6 +314,48 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/TokenDto"
+  /token-monitor/all-tokens:
+    get:
+      summary: Get all tokens
+      description: Returns all tokens being monitored, optionally filtered by status
+      tags:
+        - Token Monitoring
+      responses:
+        "200":
+          description: Tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Tokens"
+                  tokens:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TokenDto"
+  /token-monitor/active-tokens:
+    get:
+      summary: Get active tokens
+      description: Returns all active tokens being monitored
+      tags:
+        - Token Monitoring
+      responses:
+        "200":
+          description: Tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Tokens"
+                  tokens:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TokenData"
   /token-monitor/trades:
     get:
       summary: Get all trades
@@ -445,6 +487,51 @@ paths:
                     type: string
                   token:
                     $ref: "#/components/schemas/TokenDto"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid token ID"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Error getting token"
+  /token-monitor/tokens/{address}/data:
+    get:
+      summary: Get token data
+      description: Returns a token data by its address
+      tags:
+        - Token Monitoring
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema:
+            type: string
+            description: The address of the token
+      responses:
+        "200":
+          description: Token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  token:
+                    $ref: "#/components/schemas/TokenData"
         "400":
           description: Bad request
           content:
@@ -1339,6 +1426,40 @@ components:
         formattedRemainingTokens:
           type: string
           description: Formatted remaining tokens
+    TokenData:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Token name
+        symbol:
+          type: string
+          description: Token symbol
+        status:
+          type: string
+          enum: ["buyable", "sold", "validated", "honeypot", "rugpull", "archived"]
+          description: Token status
+        address:
+          type: string
+          description: Token contract address
+        creatorAddress:
+          type: string
+          description: Token creator address
+        priceUsd:
+          type: string
+          description: Current price in USD
+        ethLiquidity:
+          type: string
+          description: ETH liquidity
+        dex:
+          type: string
+          description: Token dex
+        discoveredAt:
+          type: number
+          description: Timestamp when the token was discovered (in milliseconds)
+        updatedAt:
+          type: number
+          description: Timestamp when the token was last updated (in milliseconds)
 
     # Webhooks
     WebhookSubscription:

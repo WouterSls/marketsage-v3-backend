@@ -109,12 +109,22 @@ export class LiquidityCheckingService {
   async rugpullCheck(token: ActiveToken | SelectToken) {
     const isActiveToken = "protocol" in token && "hasLiquidity" in token;
 
-    if (isActiveToken) {
-      const activeToken = token as ActiveToken;
-      return await this.activeTokenRugpullCheck(activeToken);
-    } else {
-      const selectToken = token as SelectToken;
-      return await this.selectTokenRugpullCheck(selectToken);
+    try {
+      if (isActiveToken) {
+        const activeToken = token as ActiveToken;
+        return await this.activeTokenRugpullCheck(activeToken);
+      } else {
+        const selectToken = token as SelectToken;
+        return await this.selectTokenRugpullCheck(selectToken);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      if (errorMessage.toLowerCase().includes("insufficient_input_amount")) {
+        console.log("rugp pull detection ");
+        return { isRugpull: true };
+      }
+      console.error(`Error checking rugpull for token ${token.address}: ${errorMessage}`);
+      return { isRugpull: false };
     }
   }
   private async activeTokenRugpullCheck(activeToken: ActiveToken) {
@@ -128,6 +138,7 @@ export class LiquidityCheckingService {
     switch (activeToken.protocol) {
       case "uniswapv2":
         const v2Liquidity = await this.checkV2Liquidity(activeToken.address);
+        console.log("v2Liquidity", v2Liquidity);
         liquidityETH = v2Liquidity.exists && v2Liquidity.liquidityEth ? BigInt(v2Liquidity.liquidityEth) : 0n;
         break;
 
@@ -175,6 +186,7 @@ export class LiquidityCheckingService {
     switch (selectToken.dex) {
       case "uniswapv2":
         const v2Liquidity = await this.checkV2Liquidity(selectToken.address);
+        console.log("v2Liquidity", v2Liquidity);
         liquidityETH = v2Liquidity.exists && v2Liquidity.liquidityEth ? BigInt(v2Liquidity.liquidityEth) : 0n;
         break;
 

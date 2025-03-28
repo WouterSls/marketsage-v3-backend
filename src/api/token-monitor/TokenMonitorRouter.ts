@@ -3,9 +3,11 @@ import { TokenMonitorController } from "./TokenMonitorController";
 
 const router = Router();
 
-router.get("/token-monitor/tokens", TokenMonitorController.getTokens);
+router.get("/token-monitor/all-tokens", TokenMonitorController.getTokens);
+router.get("/token-monitor/active-tokens", TokenMonitorController.getTokensData);
 
 router.get("/token-monitor/tokens/:address", TokenMonitorController.getTokenByAddress);
+router.get("/token-monitor/tokens/:address/data", TokenMonitorController.getTokenData);
 router.delete("/token-monitor/tokens/:address", TokenMonitorController.deleteToken);
 
 router.get("/token-monitor/tokens/:address/price-data", TokenMonitorController.getTokenPriceData);
