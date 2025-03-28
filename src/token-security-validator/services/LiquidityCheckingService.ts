@@ -186,7 +186,6 @@ export class LiquidityCheckingService {
     switch (selectToken.dex) {
       case "uniswapv2":
         const v2Liquidity = await this.checkV2Liquidity(selectToken.address);
-        console.log("v2Liquidity", v2Liquidity);
         liquidityETH = v2Liquidity.exists && v2Liquidity.liquidityEth ? BigInt(v2Liquidity.liquidityEth) : 0n;
         break;
 
